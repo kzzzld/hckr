@@ -30,10 +30,10 @@ Mouse reporting is disabled when the app exits. Hold your terminal's mouse-selec
 
 ## Homebrew
 
-Install the development version from the [remote tap](https://github.com/kzzzld/homebrew-tap):
+Install the development version from the [remote tap](https://github.com/kzzzld/tap):
 
 ```sh
-brew tap kzzzld/tap
+brew tap kzzzld/tap https://github.com/kzzzld/tap
 brew install --HEAD kzzzld/tap/hckr
 brew test kzzzld/tap/hckr
 ```
