@@ -28,20 +28,24 @@ In terminals that support SGR or legacy xterm mouse reporting, hover over tabs, 
 
 Mouse reporting is disabled when the app exits. Hold your terminal's mouse-selection modifier (often Shift) when you want to select and copy text instead of sending clicks to the app.
 
-## Homebrew formula
+## Homebrew
 
-`Formula/hckr.rb` builds the development version from the `main` branch of `https://github.com/kzzzld/hckr`. There is no tagged release yet, so use `--HEAD`.
-
-From a checkout of this repository, create a local tap and copy the formula into it:
+Install the development version from the [remote tap](https://github.com/kzzzld/homebrew-tap):
 
 ```sh
-brew tap-new kzzzld/local
-cp Formula/hckr.rb "$(brew --repository kzzzld/local)/Formula/hckr.rb"
-brew install --HEAD kzzzld/local/hckr
-brew test kzzzld/local/hckr
+brew tap kzzzld/tap
+brew install --HEAD kzzzld/tap/hckr
+brew test kzzzld/tap/hckr
 ```
 
-Run the copy command from this checkout. The formula installs `hckr` into Homebrew's binary directory and an example `config.ini` into its shared-data directory. Your personal configuration is created on first launch. The formula test runs offline and verifies startup and configuration creation. On Linux, opening articles also requires the desktop's `xdg-open` command.
+No local checkout or formula copying is required. There is no tagged release yet, so use `--HEAD` to build from `main`. To update later:
+
+```sh
+brew update
+brew upgrade --fetch-HEAD kzzzld/tap/hckr
+```
+
+The formula installs `hckr` and its INI themes. Your personal configuration is created on first launch. The formula test runs offline and verifies startup, configuration creation, and bundled theme loading. On Linux, opening articles also requires the desktop's `xdg-open` command. The formula source is also kept in `Formula/hckr.rb` in this repository.
 
 ## Article details
 
