@@ -1,12 +1,14 @@
 # hckr
 
-A Hacker News terminal app in C. Browse live news, new, past, comments, ask, show, and jobs feeds. Story tabs show titles; the Comments tab shows single-line comment previews.
+A Hacker News terminal app written in C, with keyboard and mouse navigation, threaded discussions, and INI color themes. Browse news, new, past, comments, ask, show, and jobs; open articles in your default browser or read their discussions in the terminal.
 
 ## Build and run
 
 On macOS, install the Xcode Command Line Tools (`xcode-select --install`), then:
 
 ```sh
+git clone https://github.com/kzzzld/hckr.git
+cd hckr
 brew bundle
 make
 ./build/hckr
@@ -28,9 +30,9 @@ Mouse reporting is disabled when the app exits. Hold your terminal's mouse-selec
 
 ## Homebrew formula
 
-`Formula/hckr.rb` builds the development version from the `main` branch of `https://github.com/kzzzld/hckr`. That repository must exist and contain the code before installation can work. There is no tagged release yet, so use `--HEAD`.
+`Formula/hckr.rb` builds the development version from the `main` branch of `https://github.com/kzzzld/hckr`. There is no tagged release yet, so use `--HEAD`.
 
-Once the repository is available, create a local tap and copy the formula into it:
+From a checkout of this repository, create a local tap and copy the formula into it:
 
 ```sh
 brew tap-new kzzzld/local
