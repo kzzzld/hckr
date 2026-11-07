@@ -20,6 +20,19 @@ The `Test and release` workflow builds and tests on macOS and Linux. Only after 
 
 Archives are reproducible for the same tag. Rerunning publication verifies an existing release instead of replacing its assets. Use a new version for corrections; do not move published tags or replace release archives. Pre-release tags are not supported by this stable-release workflow.
 
+## Recover an existing tag without a release
+
+A tag is not itself a GitHub Release. A successful tap check can make no changes if no stable release exists. GitHub also skips tag-push workflows when the tagged commit message contains markers such as `[skip ci]`.
+
+Do not delete or move an existing version tag. Publish it through the manual release action instead:
+
+```sh
+gh workflow run release.yml --repo kzzzld/hckr --ref main -f tag=v0.1.0
+gh run list --repo kzzzld/hckr --workflow release.yml
+```
+
+The manual action tests and packages the exact existing tag. Leaving its `tag` input empty runs tests only. After the release finishes, run the tap updater below. When viewing its run, specify `--repo kzzzld/tap`; otherwise `gh` uses the repository in your current directory.
+
 ## Update Homebrew
 
 The `Update hckr` workflow in [kzzzld/tap](https://github.com/kzzzld/tap) checks for a stable release hourly. It downloads the archive, verifies `SHA256SUMS`, and commits the versioned URL and checksum to `Formula/hckr.rb`. It preserves the development `head` source. It does nothing before the first release or when the formula is already current, and refuses downgrades.

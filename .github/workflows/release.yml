@@ -6,12 +6,17 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to publish (leave empty to run tests only)
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -24,6 +29,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libncurses-dev libcurl4-openssl-dev libxml2-dev pkg-config
@@ -34,28 +41,31 @@ jobs:
         run: make test
 
   release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - name: Package tagged sources
-        run: python3 scripts/package_release.py "$GITHUB_REF_NAME"
+        run: python3 scripts/package_release.py "$RELEASE_TAG"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          archive="hckr-${GITHUB_REF_NAME#v}.tar.gz"
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release download "$GITHUB_REF_NAME" --pattern "$archive" --pattern SHA256SUMS --dir existing
+          archive="hckr-${RELEASE_TAG#v}.tar.gz"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release download "$RELEASE_TAG" --pattern "$archive" --pattern SHA256SUMS --dir existing
             cmp "dist/$archive" "existing/$archive"
             cmp dist/SHA256SUMS existing/SHA256SUMS
           else
-            gh release create "$GITHUB_REF_NAME" "dist/$archive" dist/SHA256SUMS \
-              --verify-tag --title "hckr $GITHUB_REF_NAME" --generate-notes --latest
+            gh release create "$RELEASE_TAG" "dist/$archive" dist/SHA256SUMS \
+              --verify-tag --title "hckr $RELEASE_TAG" --generate-notes --latest
           fi

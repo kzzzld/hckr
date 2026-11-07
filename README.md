@@ -79,6 +79,14 @@ brew upgrade kzzzld/tap/hckr
 
 Existing `--HEAD` users can switch to stable with `brew uninstall hckr` followed by `brew install kzzzld/tap/hckr`; personal configuration is preserved. Development installs remain available with `--HEAD`.
 
+If a tag already exists but no release was created, publish that exact tag through the manual action:
+
+```sh
+gh workflow run release.yml --repo kzzzld/hckr --ref main -f tag=v0.1.0
+```
+
+Use `gh run view <run-id> --repo kzzzld/tap` to inspect a tap updater run from the app checkout. A successful tap check with no published release makes no formula changes.
+
 Use a new version for each release; do not move published tags or replace release archives. See [the release guide](docs/RELEASING.md) for workflow details and recovery.
 
 ## Post text
