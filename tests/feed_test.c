@@ -30,12 +30,13 @@ int main(int argc, char **argv)
     size_t length;
     const char *body = http_body(request, &length);
     struct feed feed = {0};
-    int result = feed_parse(body, length, strcmp(argv[2], "/newcomments") == 0,
+    int result = feed_parse(body, length, strcmp(argv[2], "/newcomments") == 0, argv[1],
                             &feed, error, sizeof(error));
     if (result == 0) {
         assert(error[0] == '\0');
         assert(feed.count > 0);
-        printf("%zu items\n%s\n", feed.count, feed.items[0]);
+        printf("%zu items\n%s\n", feed.count, feed.items[0].title);
+        printf("%s\n", feed.items[0].url != NULL ? feed.items[0].url : "no URL");
     } else {
         fprintf(stderr, "%s\n", error);
     }

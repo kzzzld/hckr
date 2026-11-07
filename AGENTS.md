@@ -10,3 +10,4 @@
 - No emoji comments. Omit obvious comments. Use short summaries where sufficient; explain genuinely confusing logic in detail.
 - Keep builds warning-free. Run `make` and appropriate checks after changes. For terminal changes, verify startup, resize, exit, and terminal restoration when possible.
 - Update documentation when commands, dependencies, configuration, or behavior change. Do not claim checks passed unless they ran.
+- After completing work and running the required checks, commit all pending project changes automatically without asking for confirmation, unless the user explicitly requests otherwise. Review the staged changes, keep generated files and secrets out of commits, and report the commit hash and any remaining changes. Do not push unless requested.

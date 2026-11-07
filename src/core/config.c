@@ -159,7 +159,7 @@ static int load_file(struct app_config *config, const char *path,
             }
         } else if (section == UI && strcmp(key, "initial_tab") == 0) {
             if (!valid_tab(value)) {
-                problem = "initial_tab must be new, past, comments, ask, show, or jobs";
+                problem = "initial_tab must be news, new, past, comments, ask, show, or jobs";
             } else {
                 set_value(config->initial_tab, sizeof(config->initial_tab), value);
             }

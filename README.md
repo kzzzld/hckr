@@ -1,6 +1,6 @@
 # hckr
 
-A Hacker News terminal app in C. Browse live new, past, comments, ask, show, and jobs feeds. Story tabs show titles; the Comments tab shows single-line comment previews.
+A Hacker News terminal app in C. Browse live news, new, past, comments, ask, show, and jobs feeds. Story tabs show titles; the Comments tab shows single-line comment previews.
 
 ## Build and run
 
@@ -16,9 +16,23 @@ make
 
 Switch tabs with Left/Right, `h`/`l`, or Tab/Shift-Tab. Navigation wraps around and the selected tab is highlighted. On narrow terminals the tab bar scrolls to keep the selected tab visible. Press `q`, Escape, or Ctrl-C to exit. Resizing redraws the UI; normal terminal settings are restored on exit.
 
-Use `j`/`k` or Up/Down to scroll and `r` to reload. Each tab fetches its page when selected. Loading and request errors appear in the content area; keyboard navigation remains available while fetching. Requests use a 10-second connection timeout, a 20-second total timeout, and a 2 MiB response limit. TLS certificates are verified.
+Use `j`/`k` or Up/Down to select an item and `r` to reload. The selection is highlighted and the list scrolls to keep it visible. Press Enter to open the selected article in your default browser. Ask HN posts open their HN page; comments open their permalink. Missing or unsupported links show an error without leaving the list. Each tab fetches its page when selected. Loading and request errors appear in the content area; keyboard navigation remains available while fetching. Requests use a 10-second connection timeout, a 20-second total timeout, and a 2 MiB response limit. TLS certificates are verified.
 
-Use `make run` to build and launch, `make test` to run checks (Python 3 required), or `make clean` to remove build output. The fetching tests use a temporary localhost HTTP server.
+Use `make run` to build and launch, `make test` to run checks (Python 3 required), or `make clean` to remove build output. The fetching tests use a temporary localhost HTTP server. Keyboard regression checks use temporary terminal pairs to cover standard and application-mode arrows, modified arrows, Shift-Enter, and Escape.
+
+## Article details
+
+Press Shift-Enter on a selected item to read its Hacker News discussion inside the app. `c` opens the same view in any terminal. Shift-Enter supports Kitty's enhanced keyboard protocol and the xterm modified-key sequence; terminals that send the same bytes for Enter and Shift-Enter require the `c` fallback or a terminal key mapping.
+
+The detail view shows points, story text when available, and comments with author names and reply indentation. Separate upvote and downvote totals are not public; the UI labels them as unavailable. Comment totals describe the current page, and a notice identifies discussions with more pages available on Hacker News.
+
+Scroll with `j`/`k` or Up/Down, reload with `r`, and press `q` or Escape to return to the original tab and selection. Returning during loading cancels the detail request. Enter still opens the selected article in your default browser. At the home list, `q` exits the app.
+
+## Opening articles
+
+Browser launching uses `open` on macOS, `xdg-open` on Linux and other Unix desktops, and `ShellExecuteW` on Windows. Linux requires xdg-utils and a configured default browser in a graphical desktop session. Browser URLs are passed directly, without a shell, and only HTTP/HTTPS links are accepted. Launcher errors appear in the footer; move the selection to clear them.
+
+The browser adapter includes Windows support, but the existing app still uses POSIX terminal and configuration APIs. A full native Windows build and Windows/Linux desktop behavior have not been verified here.
 
 ## Configuration
 
@@ -32,7 +46,7 @@ base_url = https://news.ycombinator.com
 initial_tab = new
 ```
 
-An example is included in `config/config.ini`. Supported initial tabs are new, past, comments, ask, show, and jobs. Environment variable `HCKR_HN_URL` overrides the file's base URL. Precedence is environment, configuration file, then defaults.
+An example is included in `config/config.ini`. Supported initial tabs are news, new, past, comments, ask, show, and jobs. Environment variable `HCKR_HN_URL` overrides the file's base URL. Precedence is environment, configuration file, then defaults.
 
 Use unquoted `key = value` entries under the sections above. Blank lines and whole-line comments starting with `#` or `;` are accepted. Surrounding whitespace is ignored; inline comments and quoted values are not supported. Duplicate keys use the last value. Unknown sections or keys, empty values, and invalid initial tabs produce an error with the filename and line number. Base URLs may contain up to 2047 bytes. Each request uses this base URL plus the selected tab's relative path.
 
@@ -42,9 +56,12 @@ Configuration owns its strings and does not depend on the terminal UI.
 
 - `src/core`: shared configuration and UI-independent application logic.
 - `src/core/http.c`: asynchronous HTTP requests and cancellation.
-- `src/core/feed.c`: HTML parsing and plain-text feed items.
+- `src/core/feed.c`: feed items and article/discussion links.
+- `src/core/discussion.c`: points, story text, and threaded comment parsing.
+- `src/core/html.c`: shared HTML text extraction.
 - `src/core/sections.c`: shared tab labels and paths relative to the configured base URL.
 - `src/tui`: ncurses rendering and keyboard input.
+- `src/platform`: default-browser launching for each platform.
 - `src/main.c`: application startup.
 
 A future CLI can use `src/core` without linking ncurses.

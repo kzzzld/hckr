@@ -6,14 +6,18 @@ import unittest
 
 APP = Path(__file__).resolve().parents[1] / 'build/feed_test'
 STORIES = b'<span class="titleline"><a href="item?id=1">Test &amp; news</a></span>'
-COMMENTS = b'<div class="commtext c00">A <i>test</i> comment &#x1b; safe<p>Next paragraph</p></div>'
+COMMENTS = b'<tr class="athing" id="42"><td><div class="commtext c00">A <i>test</i> comment &#x1b; safe<p>Next paragraph</p></div></td></tr>'
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         bodies = {
-            '/newest': STORIES, '/front': STORIES, '/ask': STORIES,
+            '/news': STORIES, '/newest': STORIES, '/front': STORIES, '/ask': STORIES,
             '/show': STORIES, '/jobs': STORIES, '/newcomments': COMMENTS,
+            '/external': b'<span class="titleline"><a href="https://example.com/a?a=1&amp;b=2">External</a></span>',
+            '/root': b'<span class="titleline"><a href="/item?id=2">Root</a></span>',
+            '/protocol': b'<span class="titleline"><a href="//example.com/story">Protocol</a></span>',
+            '/missing': b'<span class="titleline"><a>Missing</a></span>',
             '/empty': b'', '/invalid': b'<html>unexpected page</html>',
             '/oversized': b'x' * (2 * 1024 * 1024 + 1),
         }
@@ -52,11 +56,12 @@ class FeedTest(unittest.TestCase):
                               capture_output=True, timeout=15)
 
     def test_all_tabs_and_entities(self):
-        for path in ('/newest', '/front', '/ask', '/show', '/jobs', '/redirect'):
+        for path in ('/news', '/newest', '/front', '/ask', '/show', '/jobs', '/redirect'):
             with self.subTest(path=path):
                 result = self.fetch(path)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('Test & news', result.stdout)
+                self.assertIn(self.url + 'item?id=1', result.stdout)
 
     def test_comments_and_control_characters(self):
         result = self.fetch('/newcomments')
@@ -64,6 +69,17 @@ class FeedTest(unittest.TestCase):
         self.assertIn('A test comment', result.stdout)
         self.assertNotIn('\x1b', result.stdout)
         self.assertIn('safe Next paragraph', result.stdout)
+        self.assertIn(self.url + 'item?id=42', result.stdout)
+
+    def test_link_resolution(self):
+        for path, url in (('/external', 'https://example.com/a?a=1&b=2'),
+                          ('/root', self.url + 'item?id=2'),
+                          ('/protocol', 'http://example.com/story'),
+                          ('/missing', 'no URL')):
+            with self.subTest(path=path):
+                result = self.fetch(path)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(url, result.stdout)
 
     def test_failures(self):
         for path, status in (('/unavailable', 2), ('/empty', 3),

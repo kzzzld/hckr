@@ -3,6 +3,7 @@
 const struct hn_section *hn_sections(size_t *count)
 {
     static const struct hn_section sections[] = {
+        { "news", "/news", 0 },
         { "new", "/newest", 0 },
         { "past", "/front", 0 },
         { "comments", "/newcomments", 1 },

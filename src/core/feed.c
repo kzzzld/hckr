@@ -1,9 +1,11 @@
 #include "core/feed.h"
+#include "core/html.h"
 
 #include <ctype.h>
 #include <limits.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
+#include <libxml/uri.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,67 +13,55 @@
 void feed_free(struct feed *feed)
 {
     for (size_t i = 0; i < feed->count; ++i) {
-        free(feed->items[i]);
+        free(feed->items[i].title);
+        free(feed->items[i].url);
+        free(feed->items[i].discussion_path);
     }
     free(feed->items);
     *feed = (struct feed){0};
 }
 
-static int collect_text(xmlNode *node, xmlBufferPtr buffer)
+static char *item_url(xmlNode *node, int comments, const char *base_url)
 {
-    for (; node != NULL; node = node->next) {
-        if (node->type == XML_TEXT_NODE) {
-            if (xmlBufferCat(buffer, node->content) != 0) {
-                return -1;
-            }
-        } else if (node->type == XML_ELEMENT_NODE) {
-            int block = xmlStrEqual(node->name, BAD_CAST "p") ||
-                        xmlStrEqual(node->name, BAD_CAST "div") ||
-                        xmlStrEqual(node->name, BAD_CAST "br") ||
-                        xmlStrEqual(node->name, BAD_CAST "pre");
-            if ((block && xmlBufferCat(buffer, BAD_CAST " ") != 0) ||
-                collect_text(node->children, buffer) != 0 ||
-                (block && xmlBufferCat(buffer, BAD_CAST " ") != 0)) {
-                return -1;
-            }
+    xmlChar *href = NULL;
+    if (comments) {
+        xmlNode *row = node;
+        while (row != NULL && !xmlStrEqual(row->name, BAD_CAST "tr")) {
+            row = row->parent;
         }
+        xmlChar *id = row != NULL ? xmlGetProp(row, BAD_CAST "id") : NULL;
+        if (id != NULL) {
+            size_t size = strlen((const char *)id) + sizeof("item?id=");
+            href = xmlMalloc(size);
+            if (href != NULL) {
+                snprintf((char *)href, size, "item?id=%s", (const char *)id);
+            }
+            xmlFree(id);
+        }
+    } else {
+        href = xmlGetProp(node, BAD_CAST "href");
     }
-    return 0;
-}
-
-static char *plain_text(xmlNode *node)
-{
-    xmlBufferPtr buffer = xmlBufferCreate();
-    if (buffer == NULL) {
+    if (href == NULL) {
         return NULL;
     }
-    if (collect_text(node->children, buffer) != 0) {
-        xmlBufferFree(buffer);
+    size_t size = strlen(base_url) + 2;
+    char *base = malloc(size);
+    if (base == NULL) {
+        xmlFree(href);
         return NULL;
     }
-    const xmlChar *content = xmlBufferContent(buffer);
-    char *text = malloc(strlen((const char *)content) + 1);
-    if (text != NULL) {
-        size_t length = 0;
-        int space = 0;
-        for (const unsigned char *p = content; *p != '\0'; ++p) {
-            if (isspace(*p) || *p < 32 || *p == 127) {
-                space = length > 0;
-            } else {
-                if (space) {
-                    text[length++] = ' ';
-                    space = 0;
-                }
-                text[length++] = (char)*p;
-            }
-        }
-        text[length] = '\0';
-    }
-    xmlBufferFree(buffer);
-    return text;
+    snprintf(base, size, "%s%s", base_url,
+             base_url[0] != '\0' && base_url[strlen(base_url) - 1] == '/' ? "" : "/");
+    xmlChar *resolved = xmlBuildURI(href, BAD_CAST base);
+    char *url = resolved != NULL ? strdup((const char *)resolved) : NULL;
+    xmlFree(resolved);
+    xmlFree(href);
+    free(base);
+    return url;
 }
 
-int feed_parse(const char *html, size_t length, int comments, struct feed *feed,
+int feed_parse(const char *html, size_t length, int comments, const char *base_url,
+               struct feed *feed,
                char *error, size_t error_size)
 {
     if (length == 0 || length > INT_MAX) {
@@ -94,13 +84,18 @@ int feed_parse(const char *html, size_t length, int comments, struct feed *feed,
         if (feed->items != NULL) {
             result = 0;
             for (size_t i = 0; i < count; ++i) {
-                char *text = plain_text(nodes->nodesetval->nodeTab[i]);
+                char *text = html_text(nodes->nodesetval->nodeTab[i]);
                 if (text == NULL) {
                     result = -1;
                     snprintf(error, error_size, "could not allocate feed items");
                     break;
                 }
-                feed->items[feed->count++] = text;
+                feed->items[feed->count].title = text;
+                feed->items[feed->count].url = item_url(nodes->nodesetval->nodeTab[i],
+                                                       comments, base_url);
+                feed->items[feed->count].discussion_path =
+                    html_item_path(nodes->nodesetval->nodeTab[i]);
+                ++feed->count;
             }
         }
     } else if (nodes != NULL) {
