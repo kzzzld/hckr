@@ -51,7 +51,35 @@ The formula installs `hckr` and its INI themes. Your personal configuration is c
 
 ## Releases
 
-Push a stable version tag such as `v0.1.0` to run macOS/Linux checks and publish a source release. The tap then picks up the release hourly, or through its manual update action. See [the release guide](docs/RELEASING.md) for publication, upgrades, and recovery.
+Releases use stable `vMAJOR.MINOR.PATCH` tags. To publish a version (using `v0.1.0` as an example):
+
+```sh
+git switch main
+git pull --ff-only
+git tag -a v0.1.0 -m "hckr v0.1.0"
+git push origin v0.1.0
+```
+
+GitHub Actions builds and tests on macOS and Linux. After both pass, it publishes a GitHub Release with generated notes, a source archive (`hckr-0.1.0.tar.gz`), and `SHA256SUMS`. No binaries or Homebrew bottles are published.
+
+The [tap updater](https://github.com/kzzzld/tap/actions/workflows/update-hckr.yml) checks hourly, verifies the archive checksum, and commits the stable formula URL and checksum. No additional secrets are required. To update the tap immediately after a release finishes:
+
+```sh
+gh workflow run update-hckr.yml --repo kzzzld/tap
+```
+
+After the first release and tap update, users can install and update stable versions:
+
+```sh
+brew tap kzzzld/tap https://github.com/kzzzld/tap
+brew install kzzzld/tap/hckr
+brew update
+brew upgrade kzzzld/tap/hckr
+```
+
+Existing `--HEAD` users can switch to stable with `brew uninstall hckr` followed by `brew install kzzzld/tap/hckr`; personal configuration is preserved. Development installs remain available with `--HEAD`.
+
+Use a new version for each release; do not move published tags or replace release archives. See [the release guide](docs/RELEASING.md) for workflow details and recovery.
 
 ## Post text
 
