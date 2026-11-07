@@ -38,6 +38,8 @@ brew install --HEAD kzzzld/tap/hckr
 brew test kzzzld/tap/hckr
 ```
 
+If Homebrew asks you to trust the formula, run `brew trust --formula kzzzld/tap/hckr`, then retry installation.
+
 No local checkout or formula copying is required. There is no tagged release yet, so use `--HEAD` to build from `main`. To update later:
 
 ```sh
