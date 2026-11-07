@@ -53,6 +53,21 @@ class ConfigTest(unittest.TestCase):
         self.assertIn(str(self.path) + ':2:', result.stderr)
         self.assertEqual(self.path.read_text(), content)
 
+    def test_optional_colors(self):
+        self.path.parent.mkdir(parents=True)
+        for setting in ('foreground', 'background'):
+            for color in ('default', 'black', 'red', 'green', 'yellow', 'blue',
+                          'magenta', 'cyan', 'white', '0', '15', '255'):
+                with self.subTest(setting=setting, color=color):
+                    self.path.write_text(f'[ui]\n{setting} = {color}\n')
+                    self.assert_loaded()
+            for color in ('', '-1', '256', 'purple', '12x', '99999999999999999999999'):
+                with self.subTest(setting=setting, color=color):
+                    self.path.write_text(f'[ui]\n{setting} = {color}\n')
+                    result = self.run_app()
+                    self.assertIn(str(self.path) + ':2:', result.stderr)
+                    self.assertIn('color must be', result.stderr)
+
     def test_home_fallback(self):
         self.env.pop('XDG_CONFIG_HOME')
         self.assert_loaded()

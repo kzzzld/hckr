@@ -6,6 +6,8 @@
 struct app_config {
     char hn_base_url[2048];
     char initial_tab[32];
+    short foreground;
+    short background;
 };
 
 struct app_config config_default(void);

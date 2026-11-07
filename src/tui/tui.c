@@ -1,5 +1,6 @@
 #include "tui/tui.h"
 #include "tui/input.h"
+#include "tui/theme.h"
 #include "tui/discussion.h"
 #include "core/http.h"
 #include "core/feed.h"
@@ -136,6 +137,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     struct sigaction previous_int;
     struct sigaction previous_term;
     int signals_active = 0;
+    char setup_error[256] = "";
 
     if (sections == NULL || count == 0 || selected >= count) {
         fputs("hckr: no sections configured\n", stderr);
@@ -153,6 +155,11 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     }
 
     if (cbreak() == ERR || noecho() == ERR || keypad(stdscr, TRUE) == ERR) {
+        result = 1;
+        goto cleanup;
+    }
+
+    if (theme_apply(config, setup_error, sizeof(setup_error)) != 0) {
         result = 1;
         goto cleanup;
     }
@@ -411,7 +418,7 @@ cleanup:
         result = 1;
     }
     if (result != 0) {
-        fputs("hckr: terminal operation failed\n", stderr);
+        fprintf(stderr, "hckr: %s\n", setup_error[0] != '\0' ? setup_error : "terminal operation failed");
     }
     if (signals_active) {
         sigaction(SIGINT, &previous_int, NULL);

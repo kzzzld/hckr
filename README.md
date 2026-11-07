@@ -65,11 +65,15 @@ base_url = https://news.ycombinator.com
 
 [ui]
 initial_tab = new
+; foreground = white
+; background = black
 ```
 
 An example is included in `config/config.ini`. Supported initial tabs are news, new, past, comments, ask, show, and jobs. Environment variable `HCKR_HN_URL` overrides the file's base URL. Precedence is environment, configuration file, then defaults.
 
 Use unquoted `key = value` entries under the sections above. Blank lines and whole-line comments starting with `#` or `;` are accepted. Surrounding whitespace is ignored; inline comments and quoted values are not supported. Duplicate keys use the last value. Unknown sections or keys, empty values, and invalid initial tabs produce an error with the filename and line number. Base URLs may contain up to 2047 bytes. Each request uses this base URL plus the selected tab's relative path.
+
+Optional `[ui]` settings `foreground` and `background` control text and screen colors. Each can be omitted independently or set to `default` to keep the terminal's own color. Values can be `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, or a palette index from `0` to `255`. Names use your terminal's palette; higher indexes require a terminal with enough colors (usually `TERM=xterm-256color`). Unsupported colors produce a clear startup error. Selection reverses the configured colors, and hover adds underlining. Restart the app after editing colors.
 
 Configuration owns its strings and does not depend on the terminal UI.
 

@@ -15,6 +15,8 @@ struct app_config config_default(void)
     return (struct app_config){
         .hn_base_url = "https://news.ycombinator.com",
         .initial_tab = "new",
+        .foreground = -1,
+        .background = -1,
     };
 }
 
@@ -37,6 +39,34 @@ static int set_value(char *destination, size_t capacity, const char *value)
         return -1;
     }
     memcpy(destination, value, length + 1);
+    return 0;
+}
+
+static int parse_color(const char *value, short *color)
+{
+    static const char *names[] = {
+        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    };
+    if (strcmp(value, "default") == 0) {
+        *color = -1;
+        return 0;
+    }
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
+        if (strcmp(value, names[i]) == 0) {
+            *color = (short)i;
+            return 0;
+        }
+    }
+    if (!isdigit((unsigned char)value[0])) {
+        return -1;
+    }
+    char *end;
+    errno = 0;
+    long index = strtol(value, &end, 10);
+    if (errno != 0 || *end != '\0' || index < 0 || index > 255) {
+        return -1;
+    }
+    *color = (short)index;
     return 0;
 }
 
@@ -162,6 +192,11 @@ static int load_file(struct app_config *config, const char *path,
                 problem = "initial_tab must be news, new, past, comments, ask, show, or jobs";
             } else {
                 set_value(config->initial_tab, sizeof(config->initial_tab), value);
+            }
+        } else if (section == UI && (strcmp(key, "foreground") == 0 || strcmp(key, "background") == 0)) {
+            short *color = strcmp(key, "foreground") == 0 ? &config->foreground : &config->background;
+            if (parse_color(value, color) != 0) {
+                problem = "color must be default, black, red, green, yellow, blue, magenta, cyan, white, or 0–255";
             }
         } else {
             problem = "unknown setting or setting outside its section";

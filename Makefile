@@ -18,7 +18,7 @@ ifeq ($(OS),Windows_NT)
 LDLIBS += -lshell32 -lole32
 endif
 
-SOURCES := src/main.c src/core/config.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
+SOURCES := src/main.c src/core/config.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/theme.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
 OBJECTS := $(SOURCES:src/%.c=build/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
