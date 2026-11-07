@@ -10,7 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
-enum { TITLE_ROW_STEP = 1 };
+enum { TITLES_PER_GROUP = 3 };
 
 static void draw_tabs(const struct hn_section *sections, size_t count,
                       size_t selected)
@@ -61,8 +61,8 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
     } else if (error[0] != '\0') {
         mvaddnstr(2, 0, error, COLS);
     } else {
-        for (int row = 2; row < LINES - 1 && offset < feed->count;
-             row += TITLE_ROW_STEP, ++offset) {
+        size_t displayed = 0;
+        for (int row = 2; row < LINES - 1 && offset < feed->count; ++offset) {
             if (offset == article) {
                 attron(A_REVERSE);
             }
@@ -70,6 +70,8 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
             if (offset == article) {
                 attroff(A_REVERSE);
             }
+            ++displayed;
+            row += displayed % TITLES_PER_GROUP == 0 ? 2 : 1;
         }
     }
     char footer[128];
@@ -173,8 +175,8 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             }
         }
         browser_poll(&browser, notice, sizeof(notice));
-        size_t visible = LINES > 3
-            ? (size_t)(LINES - 3 + TITLE_ROW_STEP - 1) / TITLE_ROW_STEP : 1;
+        size_t rows = LINES > 3 ? (size_t)(LINES - 3) : 1;
+        size_t visible = rows - rows / (TITLES_PER_GROUP + 1);
         if (article < offset) {
             offset = article;
         } else if (article - offset >= visible) {
