@@ -60,7 +60,11 @@ build/mouse_test: tests/mouse_test.c build/tui/mouse.o
 build/config_test: tests/config_test.c build/core/config.o build/core/color.o build/core/sections.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-test: build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+build/theme_test: tests/theme_test.c build/tui/theme.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+test: build/theme_test build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+	./build/theme_test
 	./build/mouse_test
 	./build/input_test
 	./build/discussion_test

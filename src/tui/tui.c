@@ -138,6 +138,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     struct sigaction previous_term;
     int signals_active = 0;
     char setup_error[256] = "";
+    struct theme_state theme = {0};
 
     if (sections == NULL || count == 0 || selected >= count) {
         fputs("hckr: no sections configured\n", stderr);
@@ -159,7 +160,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
         goto cleanup;
     }
 
-    if (theme_apply(config, setup_error, sizeof(setup_error)) != 0) {
+    if (theme_apply(config, &theme, setup_error, sizeof(setup_error)) != 0) {
         result = 1;
         goto cleanup;
     }
@@ -414,6 +415,7 @@ cleanup:
     discussion_free(&discussion);
     http_free(request);
     feed_free(&feed);
+    theme_restore(&theme);
     if (endwin() == ERR) {
         result = 1;
     }

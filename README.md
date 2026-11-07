@@ -83,7 +83,7 @@ foreground = #FFFFFF
 ; background = default
 ```
 
-Explicit `foreground` and `background` settings override the theme regardless of their order in the file. Omit an override to inherit the theme color; setting it to `default` specifically restores the terminal's color. Values accept the eight standard names, palette indexes `0`–`255`, and unquoted `#RRGGBB` hex colors. Hex colors are mapped to the nearest available terminal palette color, so the result may differ slightly from the source palette. Terminal palette definitions are not modified. Unsupported palette indexes produce a startup error. Restart after editing settings.
+Explicit `foreground` and `background` settings override the theme regardless of their order in the file. Omit an override to inherit the theme color; setting it to `default` specifically restores the terminal's color. Values accept the eight standard names, palette indexes `0`–`255`, and unquoted `#RRGGBB` hex colors. Hex colors use dedicated RGB palette entries when the terminal supports redefining colors, preserving the theme’s colors. These entries are restored on exit. Terminals with fixed palettes use the nearest available color instead. Unsupported palette indexes produce a startup error. Restart after editing settings.
 
 To add a scheme, create `themes/<name>.ini` containing `[ui]`, `foreground`, and `background`, then set `theme = <name>`. No C changes or rebuild are needed. Keep the commented choices in `config/config.ini` current. Theme files cannot include other themes or non-color settings.
 
