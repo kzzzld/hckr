@@ -40,14 +40,18 @@ brew test kzzzld/tap/hckr
 
 If Homebrew asks you to trust the formula, run `brew trust --formula kzzzld/tap/hckr`, then retry installation.
 
-No local checkout or formula copying is required. There is no tagged release yet, so use `--HEAD` to build from `main`. To update later:
+No local checkout or formula copying is required. Until the first release, use `--HEAD` to build from `main`. After a release is published and the tap updates, omit `--HEAD` to install the stable version. To update later:
 
 ```sh
 brew update
 brew upgrade --fetch-HEAD kzzzld/tap/hckr
 ```
 
-The formula installs `hckr` and its INI themes. Your personal configuration is created on first launch. The formula test runs offline and verifies startup, configuration creation, and bundled theme loading. On Linux, opening articles also requires the desktop's `xdg-open` command. The formula source is also kept in `Formula/hckr.rb` in this repository.
+The formula installs `hckr` and its INI themes. Your personal configuration is created on first launch. The formula test runs offline and verifies startup, configuration creation, and bundled theme loading. On Linux, opening articles also requires the desktop's `xdg-open` command. The development formula template is also kept in `Formula/hckr.rb` in this repository.
+
+## Releases
+
+Push a stable version tag such as `v0.1.0` to run macOS/Linux checks and publish a source release. The tap then picks up the release hourly, or through its manual update action. See [the release guide](docs/RELEASING.md) for publication, upgrades, and recovery.
 
 ## Post text
 

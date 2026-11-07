@@ -4,7 +4,7 @@ CC = cc
 PKG_CONFIG ?= pkg-config
 
 NCURSES_PACKAGE := $(shell $(PKG_CONFIG) --exists ncursesw 2>/dev/null && echo ncursesw || echo ncurses)
-NCURSES_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(NCURSES_PACKAGE) 2>/dev/null)
+NCURSES_CFLAGS := $(filter-out -D_XOPEN_SOURCE=%,$(shell $(PKG_CONFIG) --cflags $(NCURSES_PACKAGE) 2>/dev/null))
 NCURSES_LIBS := $(shell $(PKG_CONFIG) --libs $(NCURSES_PACKAGE) 2>/dev/null || echo -lncurses)
 
 CPPFLAGS += -DHCKR_THEME_DIR='"$(THEME_DIR)"' -Isrc -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 $(NCURSES_CFLAGS)
@@ -79,6 +79,7 @@ test: build/discussion_view_test build/list_test build/theme_test build/config_t
 	python3 tests/config_test.py
 	python3 tests/feed_test.py
 	python3 tests/browser_test.py
+	python3 tests/release_test.py
 
 clean:
 	rm -rf build
