@@ -20,7 +20,7 @@ ifeq ($(OS),Windows_NT)
 LDLIBS += -lshell32 -lole32
 endif
 
-SOURCES := src/main.c src/core/config.c src/core/color.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/theme.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
+SOURCES := src/main.c src/core/config.c src/core/color.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/list.c src/tui/theme.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
 OBJECTS := $(SOURCES:src/%.c=build/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
@@ -63,7 +63,11 @@ build/config_test: tests/config_test.c build/core/config.o build/core/color.o bu
 build/theme_test: tests/theme_test.c build/tui/theme.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-test: build/theme_test build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+build/list_test: tests/list_test.c build/tui/list.o build/tui/mouse.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+test: build/list_test build/theme_test build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+	./build/list_test
 	./build/theme_test
 	./build/mouse_test
 	./build/input_test

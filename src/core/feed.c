@@ -2,6 +2,7 @@
 #include "core/html.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/xpath.h>
@@ -60,6 +61,65 @@ static char *item_url(xmlNode *node, int comments, const char *base_url)
     return url;
 }
 
+static long metric_number(const char *text)
+{
+    if (!isdigit((unsigned char)*text)) {
+        return -1;
+    }
+    char *end;
+    errno = 0;
+    long value = strtol(text, &end, 10);
+    return errno == 0 && end != text ? value : -1;
+}
+
+static void read_metrics(xmlNode *title, xmlXPathContextPtr context, struct feed_item *item)
+{
+    item->points = -1;
+    item->comments = -1;
+    xmlNode *row = title;
+    while (row != NULL && !xmlStrEqual(row->name, BAD_CAST "tr")) {
+        row = row->parent;
+    }
+    if (row == NULL) {
+        return;
+    }
+    row = row->next;
+    while (row != NULL && row->type != XML_ELEMENT_NODE) {
+        row = row->next;
+    }
+    if (row == NULL || !xmlStrEqual(row->name, BAD_CAST "tr")) {
+        return;
+    }
+    context->node = row;
+    xmlXPathObjectPtr nodes = xmlXPathEvalExpression(BAD_CAST
+        ".//span[contains(concat(' ',normalize-space(@class),' '),' score ')] | .//a", context);
+    if (nodes != NULL && nodes->nodesetval != NULL) {
+        for (int i = 0; i < nodes->nodesetval->nodeNr; ++i) {
+            xmlNode *node = nodes->nodesetval->nodeTab[i];
+            char *text = html_text(node);
+            if (text == NULL) {
+                continue;
+            }
+            if (xmlStrEqual(node->name, BAD_CAST "span")) {
+                item->points = metric_number(text);
+            } else if (item->discussion_path != NULL) {
+                xmlChar *href = xmlGetProp(node, BAD_CAST "href");
+                const char *path = item->discussion_path + 1;
+                if (href != NULL && strcmp((const char *)href, path) == 0) {
+                    if (strcmp(text, "discuss") == 0) {
+                        item->comments = 0;
+                    } else if (strstr(text, "comment") != NULL) {
+                        item->comments = metric_number(text);
+                    }
+                }
+                xmlFree(href);
+            }
+            free(text);
+        }
+    }
+    xmlXPathFreeObject(nodes);
+}
+
 int feed_parse(const char *html, size_t length, int comments, const char *base_url,
                struct feed *feed,
                char *error, size_t error_size)
@@ -95,6 +155,11 @@ int feed_parse(const char *html, size_t length, int comments, const char *base_u
                                                        comments, base_url);
                 feed->items[feed->count].discussion_path =
                     html_item_path(nodes->nodesetval->nodeTab[i]);
+                struct feed_item *item = &feed->items[feed->count];
+                item->points = item->comments = -1;
+                if (!comments) {
+                    read_metrics(nodes->nodesetval->nodeTab[i], context, item);
+                }
                 ++feed->count;
             }
         }

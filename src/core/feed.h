@@ -7,6 +7,8 @@ struct feed_item {
     char *title;
     char *url;
     char *discussion_path;
+    long points;
+    long comments;
 };
 
 struct feed {

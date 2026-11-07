@@ -36,6 +36,7 @@ int main(int argc, char **argv)
         assert(error[0] == '\0');
         assert(feed.count > 0);
         printf("%zu items\n%s\n", feed.count, feed.items[0].title);
+        printf("points=%ld comments=%ld\n", feed.items[0].points, feed.items[0].comments);
         printf("%s\n", feed.items[0].url != NULL ? feed.items[0].url : "no URL");
     } else {
         fprintf(stderr, "%s\n", error);

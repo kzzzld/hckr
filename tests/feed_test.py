@@ -5,7 +5,11 @@ import threading
 import unittest
 
 APP = Path(__file__).resolve().parents[1] / 'build/feed_test'
-STORIES = b'<span class="titleline"><a href="item?id=1">Test &amp; news</a></span>'
+STORIES = (b'<table><tr class="athing" id="1"><td><span class="titleline">'
+           b'<a href="item?id=1">Test &amp; news</a></span></td></tr>'
+           b'<tr><td class="subtext"><span class="score">986 points</span>'
+           b'<a href="item?id=1">1 hour ago</a> | '
+           b'<a href="item?id=1">174&nbsp;comments</a></td></tr></table>')
 COMMENTS = b'<tr class="athing" id="42"><td><div class="commtext c00">A <i>test</i> comment &#x1b; safe<p>Next paragraph</p></div></td></tr>'
 
 
@@ -18,6 +22,8 @@ class Handler(BaseHTTPRequestHandler):
             '/root': b'<span class="titleline"><a href="/item?id=2">Root</a></span>',
             '/protocol': b'<span class="titleline"><a href="//example.com/story">Protocol</a></span>',
             '/missing': b'<span class="titleline"><a>Missing</a></span>',
+            '/discuss': STORIES.replace(b'174&nbsp;comments', b'discuss'),
+            '/one': STORIES.replace(b'986 points', b'1 point').replace(b'174&nbsp;comments', b'1 comment'),
             '/empty': b'', '/invalid': b'<html>unexpected page</html>',
             '/oversized': b'x' * (2 * 1024 * 1024 + 1),
         }
@@ -61,6 +67,7 @@ class FeedTest(unittest.TestCase):
                 result = self.fetch(path)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('Test & news', result.stdout)
+                self.assertIn('points=986 comments=174', result.stdout)
                 self.assertIn(self.url + 'item?id=1', result.stdout)
 
     def test_comments_and_control_characters(self):
@@ -80,6 +87,16 @@ class FeedTest(unittest.TestCase):
                 result = self.fetch(path)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(url, result.stdout)
+
+    def test_metrics(self):
+        for path, expected in (('/discuss', 'points=986 comments=0'),
+                               ('/one', 'points=1 comments=1'),
+                               ('/missing', 'points=-1 comments=-1'),
+                               ('/newcomments', 'points=-1 comments=-1')):
+            with self.subTest(path=path):
+                result = self.fetch(path)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(expected, result.stdout)
 
     def test_failures(self):
         for path, status in (('/unavailable', 2), ('/empty', 3),

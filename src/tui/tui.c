@@ -1,5 +1,6 @@
 #include "tui/tui.h"
 #include "tui/input.h"
+#include "tui/list.h"
 #include "tui/theme.h"
 #include "tui/discussion.h"
 #include "core/http.h"
@@ -64,50 +65,6 @@ static size_t draw_tabs(const struct hn_section *sections, size_t count,
     return first;
 }
 
-
-static void draw_content(const struct feed *feed, size_t offset, size_t article,
-                         int loading, const char *error, const char *notice,
-                         const struct mouse_event *pointer)
-{
-    if (LINES < 3 || COLS < 1) {
-        refresh();
-        return;
-    }
-    if (loading) {
-        mvaddnstr(2, 0, "Loading...", COLS);
-    } else if (error[0] != '\0') {
-        mvaddnstr(2, 0, error, COLS);
-    } else {
-        for (int row = 2; row < LINES - 1 && offset < feed->count; ++row, ++offset) {
-            int hovered = mouse_over(pointer, 0, row, COLS);
-            if (hovered) {
-                attron(A_UNDERLINE);
-            }
-            if (offset == article) {
-                attron(A_REVERSE);
-            }
-            mvaddnstr(row, 0, feed->items[offset].title, COLS);
-            if (offset == article) {
-                attroff(A_REVERSE);
-            }
-            if (hovered) {
-                attroff(A_UNDERLINE);
-            }
-        }
-    }
-    char footer[128];
-    snprintf(footer, sizeof(footer), "%zu/%zu | j/k select | Enter open | Shift-Enter/c details | r reload | q quit",
-             feed->count == 0 ? 0 : article + 1, feed->count);
-    int footer_hovered = mouse_over(pointer, 0, LINES - 1, COLS);
-    if (footer_hovered) {
-        attron(A_UNDERLINE);
-    }
-    mvaddnstr(LINES - 1, 0, notice[0] != '\0' ? notice : footer, COLS);
-    if (footer_hovered) {
-        attroff(A_UNDERLINE);
-    }
-    refresh();
-}
 
 int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             const struct app_config *config)
@@ -231,7 +188,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             }
         }
         browser_poll(&browser, notice, sizeof(notice));
-        size_t visible = LINES > 3 ? (size_t)(LINES - 3) : 1;
+        size_t visible = list_capacity(LINES, sections[selected].comments);
         if (article < offset) {
             offset = article;
         } else if (article - offset >= visible) {
@@ -248,7 +205,8 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             }
         } else {
             first_tab = draw_tabs(sections, count, selected, &pointer);
-            draw_content(&feed, offset, article, request != NULL, error, notice, &pointer);
+            list_draw(&feed, offset, article, sections[selected].comments,
+                      request != NULL, error, notice, &pointer);
         }
         struct mouse_event mouse = {0};
         int key = input_read(&mouse);
@@ -291,8 +249,9 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                     click_pending = 0;
                     continue;
                 }
-                size_t clicked = offset + (size_t)(mouse.y - 2);
-                if (clicked >= feed.count) {
+                size_t clicked;
+                if (!list_item_at(mouse.y, LINES, sections[selected].comments,
+                                  offset, feed.count, &clicked)) {
                     click_pending = 0;
                     continue;
                 }
