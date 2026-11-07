@@ -41,4 +41,3 @@ int color_parse(const char *value, int *color)
     *color = (int)index;
     return 0;
 }
-
