@@ -73,7 +73,23 @@ An example is included in `config/config.ini`. Supported initial tabs are news, 
 
 Use unquoted `key = value` entries under the sections above. Blank lines and whole-line comments starting with `#` or `;` are accepted. Surrounding whitespace is ignored; inline comments and quoted values are not supported. Duplicate keys use the last value. Unknown sections or keys, empty values, and invalid initial tabs produce an error with the filename and line number. Base URLs may contain up to 2047 bytes. Each request uses this base URL plus the selected tab's relative path.
 
-Optional `[ui]` settings `foreground` and `background` control text and screen colors. Each can be omitted independently or set to `default` to keep the terminal's own color. Values can be `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, or a palette index from `0` to `255`. Names use your terminal's palette; higher indexes require a terminal with enough colors (usually `TERM=xterm-256color`). Unsupported colors produce a clear startup error. Selection reverses the configured colors, and hover adds underlining. Restart the app after editing colors.
+Choose a theme with `theme = nord` under `[ui]`. Available themes are `default`, `nord`, `catppuccin` (Mocha), `catppuccin-mocha`, `catppuccin-latte`, `catppuccin-frappe`, and `catppuccin-macchiato`.
+
+```ini
+[ui]
+theme = nord
+; Override either color independently:
+foreground = #FFFFFF
+; background = default
+```
+
+Explicit `foreground` and `background` settings override the theme regardless of their order in the file. Omit an override to inherit the theme color; setting it to `default` specifically restores the terminal's color. Values accept the eight standard names, palette indexes `0`–`255`, and unquoted `#RRGGBB` hex colors. Hex colors are mapped to the nearest available terminal palette color, so the result may differ slightly from the source palette. Terminal palette definitions are not modified. Unsupported palette indexes produce a startup error. Restart after editing settings.
+
+To add a scheme, create `themes/<name>.ini` containing `[ui]`, `foreground`, and `background`, then set `theme = <name>`. No C changes or rebuild are needed. Keep the commented choices in `config/config.ini` current. Theme files cannot include other themes or non-color settings.
+
+Local builds read themes from this checkout's `themes/` directory. Homebrew installs them in its shared-data directory. Set `HCKR_THEME_DIR` to use another directory, or set `THEME_DIR` when building to change the installed lookup path. Missing or malformed themes report their path and line number where applicable. Existing personal config files are preserved.
+
+Palette references: [Nord](https://www.nordtheme.com/docs/colors-and-palettes/) and [Catppuccin](https://github.com/catppuccin/catppuccin).
 
 Configuration owns its strings and does not depend on the terminal UI.
 

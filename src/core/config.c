@@ -1,4 +1,5 @@
 #include "core/config.h"
+#include "core/color.h"
 #include "core/sections.h"
 
 #include <ctype.h>
@@ -15,6 +16,7 @@ struct app_config config_default(void)
     return (struct app_config){
         .hn_base_url = "https://news.ycombinator.com",
         .initial_tab = "new",
+        .theme = "default",
         .foreground = -1,
         .background = -1,
     };
@@ -39,34 +41,6 @@ static int set_value(char *destination, size_t capacity, const char *value)
         return -1;
     }
     memcpy(destination, value, length + 1);
-    return 0;
-}
-
-static int parse_color(const char *value, short *color)
-{
-    static const char *names[] = {
-        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-    };
-    if (strcmp(value, "default") == 0) {
-        *color = -1;
-        return 0;
-    }
-    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
-        if (strcmp(value, names[i]) == 0) {
-            *color = (short)i;
-            return 0;
-        }
-    }
-    if (!isdigit((unsigned char)value[0])) {
-        return -1;
-    }
-    char *end;
-    errno = 0;
-    long index = strtol(value, &end, 10);
-    if (errno != 0 || *end != '\0' || index < 0 || index > 255) {
-        return -1;
-    }
-    *color = (short)index;
     return 0;
 }
 
@@ -130,11 +104,11 @@ static int create_file(const char *path)
     return 0;
 }
 
-static int load_file(struct app_config *config, const char *path,
-                     char *error, size_t error_size)
+static int load_file(struct app_config *config, const char *path, int theme_file,
+                     unsigned *overrides, char *error, size_t error_size)
 {
     FILE *file = fopen(path, "r");
-    if (file == NULL && errno == ENOENT) {
+    if (file == NULL && errno == ENOENT && !theme_file) {
         if (create_file(path) != 0) {
             snprintf(error, error_size, "%s: could not create configuration: %s",
                      path, strerror(errno));
@@ -183,20 +157,32 @@ static int load_file(struct app_config *config, const char *path,
         *equals = '\0';
         char *key = trim(text);
         char *value = trim(equals + 1);
-        if (section == HACKERNEWS && strcmp(key, "base_url") == 0) {
+        if (!theme_file && section == HACKERNEWS && strcmp(key, "base_url") == 0) {
             if (set_value(config->hn_base_url, sizeof(config->hn_base_url), value) != 0) {
                 problem = "base_url must contain 1–2047 bytes";
             }
-        } else if (section == UI && strcmp(key, "initial_tab") == 0) {
+        } else if (!theme_file && section == UI && strcmp(key, "initial_tab") == 0) {
             if (!valid_tab(value)) {
                 problem = "initial_tab must be news, new, past, comments, ask, show, or jobs";
             } else {
                 set_value(config->initial_tab, sizeof(config->initial_tab), value);
             }
+        } else if (!theme_file && section == UI && strcmp(key, "theme") == 0) {
+            int valid = value[0] != '\0';
+            for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+                if (!isalnum(*p) && *p != '-' && *p != '_') {
+                    valid = 0;
+                }
+            }
+            if (!valid || set_value(config->theme, sizeof(config->theme), value) != 0) {
+                problem = "theme must be a name containing letters, numbers, hyphens, or underscores";
+            }
         } else if (section == UI && (strcmp(key, "foreground") == 0 || strcmp(key, "background") == 0)) {
-            short *color = strcmp(key, "foreground") == 0 ? &config->foreground : &config->background;
-            if (parse_color(value, color) != 0) {
-                problem = "color must be default, black, red, green, yellow, blue, magenta, cyan, white, or 0–255";
+            int *color = strcmp(key, "foreground") == 0 ? &config->foreground : &config->background;
+            if (color_parse(value, color) != 0) {
+                problem = "color must be default, black, red, green, yellow, blue, magenta, cyan, white, 0–255, or #RRGGBB";
+            } else {
+                *overrides |= strcmp(key, "foreground") == 0 ? 1U : 2U;
             }
         } else {
             problem = "unknown setting or setting outside its section";
@@ -222,6 +208,7 @@ static int load_file(struct app_config *config, const char *path,
 int config_load(struct app_config *config, char *error, size_t error_size)
 {
     struct app_config loaded = config_default();
+    unsigned overrides = 0;
     const char *root = getenv("XDG_CONFIG_HOME");
     const char *suffix = "/hckr/config.ini";
     if (root == NULL || root[0] == '\0') {
@@ -243,10 +230,40 @@ int config_load(struct app_config *config, char *error, size_t error_size)
             return -1;
         }
         snprintf(path, size, "%s%s", root, suffix);
-        int result = load_file(&loaded, path, error, error_size);
+        int result = load_file(&loaded, path, 0, &overrides, error, error_size);
         free(path);
         if (result != 0) {
             return -1;
+        }
+    }
+    if (strcmp(loaded.theme, "default") != 0) {
+        const char *directory = getenv("HCKR_THEME_DIR");
+        if (directory == NULL || directory[0] == '\0') {
+            directory = HCKR_THEME_DIR;
+        }
+        size_t size = strlen(directory) + strlen(loaded.theme) + sizeof("/.ini");
+        char *path = malloc(size);
+        if (path == NULL) {
+            snprintf(error, error_size, "could not allocate theme path");
+            return -1;
+        }
+        snprintf(path, size, "%s/%s.ini", directory, loaded.theme);
+        struct app_config themed = config_default();
+        unsigned theme_colors = 0;
+        int result = load_file(&themed, path, 1, &theme_colors, error, error_size);
+        if (result == 0 && theme_colors != 3) {
+            snprintf(error, error_size, "%s: theme requires foreground and background under [ui]", path);
+            result = -1;
+        }
+        free(path);
+        if (result != 0) {
+            return -1;
+        }
+        if (!(overrides & 1)) {
+            loaded.foreground = themed.foreground;
+        }
+        if (!(overrides & 2)) {
+            loaded.background = themed.background;
         }
     }
     const char *url = getenv("HCKR_HN_URL");

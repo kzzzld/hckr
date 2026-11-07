@@ -1,3 +1,5 @@
+THEME_DIR ?= $(CURDIR)/themes
+
 CC = cc
 PKG_CONFIG ?= pkg-config
 
@@ -5,7 +7,7 @@ NCURSES_PACKAGE := $(shell $(PKG_CONFIG) --exists ncursesw 2>/dev/null && echo n
 NCURSES_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(NCURSES_PACKAGE) 2>/dev/null)
 NCURSES_LIBS := $(shell $(PKG_CONFIG) --libs $(NCURSES_PACKAGE) 2>/dev/null || echo -lncurses)
 
-CPPFLAGS += -Isrc -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 $(NCURSES_CFLAGS)
+CPPFLAGS += -DHCKR_THEME_DIR='"$(THEME_DIR)"' -Isrc -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 $(NCURSES_CFLAGS)
 CFLAGS ?= -O2 -g
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic
 HTTP_CFLAGS := $(shell $(PKG_CONFIG) --cflags libcurl 2>/dev/null || curl-config --cflags)
@@ -18,7 +20,7 @@ ifeq ($(OS),Windows_NT)
 LDLIBS += -lshell32 -lole32
 endif
 
-SOURCES := src/main.c src/core/config.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/theme.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
+SOURCES := src/main.c src/core/config.c src/core/color.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/theme.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
 OBJECTS := $(SOURCES:src/%.c=build/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
@@ -55,7 +57,10 @@ build/input_test: tests/input_test.c build/tui/input.o build/tui/mouse.o
 build/mouse_test: tests/mouse_test.c build/tui/mouse.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-test: build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+build/config_test: tests/config_test.c build/core/config.o build/core/color.o build/core/sections.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+test: build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
 	./build/mouse_test
 	./build/input_test
 	./build/discussion_test
