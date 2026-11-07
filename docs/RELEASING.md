@@ -39,7 +39,7 @@ brew tap kzzzld/tap https://github.com/kzzzld/tap
 brew install kzzzld/tap/hckr
 ```
 
-Users who already installed `--HEAD` should switch once with `brew reinstall kzzzld/tap/hckr`. Afterwards, `brew update` and `brew upgrade kzzzld/tap/hckr` install stable updates. `brew install --HEAD kzzzld/tap/hckr` remains available for development builds.
+To switch from an existing `--HEAD` installation after the first stable release, run `brew uninstall hckr` followed by `brew install kzzzld/tap/hckr`. Your personal `~/.config/hckr` files are separate from the Homebrew package. Afterwards, `brew update` and `brew upgrade kzzzld/tap/hckr` install stable updates. `brew install --HEAD kzzzld/tap/hckr` remains available for development builds.
 
 ## Maintain the formula
 
