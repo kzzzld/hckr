@@ -20,6 +20,21 @@ Use `j`/`k` or Up/Down to select an item and `r` to reload. The selection is hig
 
 Use `make run` to build and launch, `make test` to run checks (Python 3 required), or `make clean` to remove build output. The fetching tests use a temporary localhost HTTP server. Keyboard regression checks use temporary terminal pairs to cover standard and application-mode arrows, modified arrows, Shift-Enter, and Escape.
 
+## Homebrew formula
+
+`Formula/hckr.rb` builds the development version from the `main` branch of `https://github.com/kzzzld/hckr`. That repository must exist and contain the code before installation can work. There is no tagged release yet, so use `--HEAD`.
+
+Once the repository is available, create a local tap and copy the formula into it:
+
+```sh
+brew tap-new kzzzld/local
+cp Formula/hckr.rb "$(brew --repository kzzzld/local)/Formula/hckr.rb"
+brew install --HEAD kzzzld/local/hckr
+brew test kzzzld/local/hckr
+```
+
+Run the copy command from this checkout. The formula installs `hckr` into Homebrew's binary directory and an example `config.ini` into its shared-data directory. Your personal configuration is created on first launch. The formula test runs offline and verifies startup and configuration creation. On Linux, opening articles also requires the desktop's `xdg-open` command.
+
 ## Article details
 
 Press Shift-Enter on a selected item to read its Hacker News discussion inside the app. `c` opens the same view in any terminal. Shift-Enter supports Kitty's enhanced keyboard protocol and the xterm modified-key sequence; terminals that send the same bytes for Enter and Shift-Enter require the `c` fallback or a terminal key mapping.
