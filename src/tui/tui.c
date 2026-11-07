@@ -20,7 +20,7 @@ static void handle_signal(int signal_number)
 }
 
 static size_t draw_tabs(const struct hn_section *sections, size_t count,
-                      size_t selected)
+                      size_t selected, const struct mouse_event *pointer)
 {
     size_t first = selected;
     size_t width = strlen(sections[selected].label);
@@ -44,12 +44,19 @@ static size_t draw_tabs(const struct hn_section *sections, size_t count,
         if (column >= COLS) {
             break;
         }
+        int hovered = mouse_over(pointer, column, 0, (int)strlen(sections[i].label));
+        if (hovered) {
+            attron(A_UNDERLINE);
+        }
         if (i == selected) {
             attron(A_REVERSE);
         }
         mvaddnstr(0, column, sections[i].label, COLS - column);
         if (i == selected) {
             attroff(A_REVERSE);
+        }
+        if (hovered) {
+            attroff(A_UNDERLINE);
         }
         column += (int)strlen(sections[i].label);
     }
@@ -58,7 +65,8 @@ static size_t draw_tabs(const struct hn_section *sections, size_t count,
 
 
 static void draw_content(const struct feed *feed, size_t offset, size_t article,
-                         int loading, const char *error, const char *notice)
+                         int loading, const char *error, const char *notice,
+                         const struct mouse_event *pointer)
 {
     if (LINES < 3 || COLS < 1) {
         refresh();
@@ -70,6 +78,10 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
         mvaddnstr(2, 0, error, COLS);
     } else {
         for (int row = 2; row < LINES - 1 && offset < feed->count; ++row, ++offset) {
+            int hovered = mouse_over(pointer, 0, row, COLS);
+            if (hovered) {
+                attron(A_UNDERLINE);
+            }
             if (offset == article) {
                 attron(A_REVERSE);
             }
@@ -77,12 +89,22 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
             if (offset == article) {
                 attroff(A_REVERSE);
             }
+            if (hovered) {
+                attroff(A_UNDERLINE);
+            }
         }
     }
     char footer[128];
     snprintf(footer, sizeof(footer), "%zu/%zu | j/k select | Enter open | Shift-Enter/c details | r reload | q quit",
              feed->count == 0 ? 0 : article + 1, feed->count);
+    int footer_hovered = mouse_over(pointer, 0, LINES - 1, COLS);
+    if (footer_hovered) {
+        attron(A_UNDERLINE);
+    }
     mvaddnstr(LINES - 1, 0, notice[0] != '\0' ? notice : footer, COLS);
+    if (footer_hovered) {
+        attroff(A_UNDERLINE);
+    }
     refresh();
 }
 
@@ -107,6 +129,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     struct http_request *detail_request = NULL;
     char detail_error[256] = "";
     size_t first_tab = 0;
+    struct mouse_event pointer = { .x = -1, .y = -1 };
     size_t last_clicked = 0;
     int click_pending = 0;
     struct timespec last_click = {0};
@@ -208,21 +231,26 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
         }
         if (details) {
             detail_lines = discussion_draw(&discussion, detail_offset,
-                                           detail_request != NULL, detail_error, notice);
+                                           detail_request != NULL, detail_error, notice, &pointer);
             size_t height = LINES > 1 ? (size_t)(LINES - 1) : 1;
             size_t maximum = detail_lines > height ? detail_lines - height : 0;
             if (detail_offset > maximum) {
                 detail_offset = maximum;
-                discussion_draw(&discussion, detail_offset, detail_request != NULL, detail_error, notice);
+                discussion_draw(&discussion, detail_offset, detail_request != NULL, detail_error, notice, &pointer);
             }
         } else {
-            first_tab = draw_tabs(sections, count, selected);
-            draw_content(&feed, offset, article, request != NULL, error, notice);
+            first_tab = draw_tabs(sections, count, selected, &pointer);
+            draw_content(&feed, offset, article, request != NULL, error, notice, &pointer);
         }
         struct mouse_event mouse = {0};
         int key = input_read(&mouse);
         if (key == KEY_MOUSE) {
+            pointer = mouse;
             if (mouse.x < 0 || mouse.x >= COLS || mouse.y < 0 || mouse.y >= LINES) {
+                pointer.x = pointer.y = -1;
+                continue;
+            }
+            if (mouse.motion) {
                 continue;
             }
             if (!mouse.released && mouse.button == MOUSE_UP) {
@@ -284,6 +312,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 continue;
             }
         } else if (key != ERR) {
+            pointer.x = pointer.y = -1;
             click_pending = 0;
         }
         if (key == KEY_CANCEL) {

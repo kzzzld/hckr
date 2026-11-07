@@ -9,13 +9,22 @@
 struct writer {
     size_t line;
     size_t offset;
+    const struct mouse_event *pointer;
 };
 
 static void write_line(struct writer *writer, const char *text, size_t length, int indent)
 {
     if (writer->line >= writer->offset &&
         writer->line - writer->offset < (size_t)(LINES > 1 ? LINES - 1 : 0)) {
-        mvaddnstr((int)(writer->line - writer->offset), indent, text, (int)length);
+        int row = (int)(writer->line - writer->offset);
+        int hovered = mouse_over(writer->pointer, indent, row, COLS - indent);
+        if (hovered) {
+            attron(A_UNDERLINE);
+        }
+        mvaddnstr(row, indent, text, (int)length);
+        if (hovered) {
+            attroff(A_UNDERLINE);
+        }
     }
     ++writer->line;
 }
@@ -79,14 +88,15 @@ static void write_text(struct writer *writer, const char *text, unsigned depth)
 }
 
 size_t discussion_draw(const struct discussion *discussion, size_t offset,
-                       int loading, const char *error, const char *notice)
+                       int loading, const char *error, const char *notice,
+                       const struct mouse_event *pointer)
 {
     erase();
     if (LINES < 2 || COLS < 1) {
         refresh();
         return 0;
     }
-    struct writer writer = { .offset = offset };
+    struct writer writer = { .offset = offset, .pointer = pointer };
     if (loading) {
         write_text(&writer, "Loading discussion...", 0);
     } else if (*error != '\0') {
@@ -116,8 +126,15 @@ size_t discussion_draw(const struct discussion *discussion, size_t offset,
             write_text(&writer, "", 0);
         }
     }
+    int hovered = mouse_over(pointer, 0, LINES - 1, COLS);
+    if (hovered) {
+        attron(A_UNDERLINE);
+    }
     mvaddnstr(LINES - 1, 0, notice[0] != '\0' ? notice :
               "j/k scroll | Enter browser | r reload | q home", COLS);
+    if (hovered) {
+        attroff(A_UNDERLINE);
+    }
     refresh();
     return writer.line;
 }

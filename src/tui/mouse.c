@@ -5,6 +5,11 @@
 #include <limits.h>
 #include <stdlib.h>
 
+int mouse_over(const struct mouse_event *mouse, int x, int y, int width)
+{
+    return mouse->y == y && mouse->x >= x && mouse->x - x < width;
+}
+
 int mouse_parse(const char *report, struct mouse_event *event)
 {
     unsigned long values[3];
@@ -32,7 +37,8 @@ int mouse_parse(const char *report, struct mouse_event *event)
     event->y = (int)values[2] - 1;
     event->released = *cursor == 'm';
     event->shift = (button & 4) != 0;
-    if ((button & 32) != 0) {
+    event->motion = (button & 32) != 0;
+    if (event->motion) {
         return 0;
     }
     switch (button & ~28U) {

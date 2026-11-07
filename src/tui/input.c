@@ -26,7 +26,7 @@ void input_start(void)
     define_key("\033[13u", KEY_ENTER);
     define_key("\033[27u", KEY_EXIT);
     define_key("\033[99;5u", KEY_CANCEL);
-    fputs("\033[>1u\033[?1000h\033[?1006h", stdout);
+    fputs("\033[>1u\033[?1000h\033[?1006h\033[?1003h", stdout);
     fflush(stdout);
 }
 
@@ -47,6 +47,7 @@ int input_read(struct mouse_event *mouse)
         *event = (struct mouse_event){
             .x = bytes[1] - 33, .y = bytes[2] - 33,
             .shift = (button & 4) != 0,
+            .motion = (button & 32) != 0,
         };
         if ((button & 32) != 0) {
             return KEY_MOUSE;
@@ -97,6 +98,6 @@ int input_read(struct mouse_event *mouse)
 
 void input_stop(void)
 {
-    fputs("\033[?1006l\033[?1000l\033[<u", stdout);
+    fputs("\033[?1003l\033[?1006l\033[?1000l\033[<u", stdout);
     fflush(stdout);
 }

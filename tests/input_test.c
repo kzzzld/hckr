@@ -51,6 +51,7 @@ int main(void)
         { "\033[27;2;13~", KEY_DISCUSSION },
         { "\033[27u", KEY_EXIT }, { "\033[99;5u", KEY_CANCEL },
         { "\033[M ,#", KEY_MOUSE },
+        { "\033[<35;12;3M", KEY_MOUSE },
         { "\033[<0;12;3m", KEY_MOUSE },
         { "\033[<64;12;3M", KEY_MOUSE },
         { "\033[<65;12;3M", KEY_MOUSE },
@@ -87,7 +88,7 @@ int main(void)
         }
         if (key == KEY_MOUSE) {
             assert(mouse.x == 11 && mouse.y == 2);
-            assert(mouse.button != MOUSE_NONE);
+            assert(mouse.button != MOUSE_NONE || mouse.motion);
         }
         input_stop();
         endwin();

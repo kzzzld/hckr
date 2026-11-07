@@ -17,8 +17,10 @@ struct mouse_event {
     int y;
     int released;
     int shift;
+    int motion;
 };
 
+int mouse_over(const struct mouse_event *mouse, int x, int y, int width);
 int mouse_parse(const char *report, struct mouse_event *event);
 
 #endif

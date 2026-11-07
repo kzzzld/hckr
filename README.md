@@ -22,7 +22,7 @@ Use `make run` to build and launch, `make test` to run checks (Python 3 required
 
 ## Mouse
 
-In terminals that support SGR or legacy xterm mouse reporting, click a tab to switch feeds and click a title to select it. Double-click a title to open it in your default browser. Shift-click opens its discussion. The wheel moves the selection in the list and scrolls comment text in the detail view. Right-click inside a discussion returns to the list.
+In terminals that support SGR or legacy xterm mouse reporting, hover over tabs, titles, discussion text, or footer hints to underline them. Hover does not change your selected article. Click a tab to switch feeds and click a title to select it. Double-click a title to open it in your default browser. Shift-click opens its discussion. The wheel moves the selection in the list and scrolls comment text in the detail view. Right-click inside a discussion returns to the list.
 
 Mouse reporting is disabled when the app exits. Hold your terminal's mouse-selection modifier (often Shift) when you want to select and copy text instead of sending clicks to the app.
 
