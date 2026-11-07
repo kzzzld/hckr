@@ -9,7 +9,7 @@ static const char page[] =
     "<table><tr class='athing' id='100'><td><span class='titleline'>"
     "<a href='https://example.com/story'>A &amp; B</a></span></td></tr>"
     "<tr><td><span class='score'>42 points</span>"
-    "<div class='toptext'>Story <i>body</i>.</div></td></tr></table>"
+    "<div class='toptext'>Story <i>body</i>.<p>Second paragraph.</p></div></td></tr></table>"
     "<table><tr class='athing comtr' id='101'><td class='ind' indent='0'>"
     "<img width='0'></td><td><a href='user?id=alice'>alice</a>"
     "<div class='commtext c00'>Hello &amp; hi.<p>Next paragraph.</p></div></td></tr>"
@@ -26,7 +26,7 @@ int main(void)
     assert(error[0] == '\0');
     assert(strcmp(discussion.title, "A & B") == 0);
     assert(strcmp(discussion.points, "42 points") == 0);
-    assert(strcmp(discussion.text, "Story body.") == 0);
+    assert(strcmp(discussion.text, "Story body.\n\nSecond paragraph.") == 0);
     assert(discussion.count == 3 && discussion.more);
     assert(strcmp(discussion.comments[0].author, "alice") == 0);
     assert(strcmp(discussion.comments[0].text, "Hello & hi. Next paragraph.") == 0);

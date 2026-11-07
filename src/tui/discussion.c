@@ -52,11 +52,16 @@ static void write_text(struct writer *writer, const char *text, unsigned depth)
         write_line(writer, "", 0, indent);
     }
     while (*text != '\0' && width > 0) {
+        if (*text == '\n') {
+            write_line(writer, "", 0, indent);
+            ++text;
+            continue;
+        }
         const char *end = text;
         const char *space = NULL;
         int cells = 0;
         mbstate_t state = {0};
-        while (*end != '\0') {
+        while (*end != '\0' && *end != '\n') {
             wchar_t character;
             size_t bytes = mbrtowc(&character, end, MB_CUR_MAX, &state);
             if (bytes == (size_t)-1 || bytes == (size_t)-2) {
@@ -77,7 +82,7 @@ static void write_text(struct writer *writer, const char *text, unsigned depth)
             cells += columns;
             end += bytes;
         }
-        if (*end != '\0' && space != NULL && space > text) {
+        if (*end != '\0' && *end != '\n' && space != NULL && space > text) {
             end = space;
         }
         if (end == text) {
@@ -91,7 +96,7 @@ static void write_text(struct writer *writer, const char *text, unsigned depth)
             text += bytes;
         } else {
             write_line(writer, text, (size_t)(end - text), indent);
-            text = end;
+            text = *end == '\n' ? end + 1 : end;
         }
         while (*text == ' ') {
             ++text;
@@ -157,8 +162,22 @@ size_t discussion_hit(const struct discussion *discussion, struct discussion_vie
     return view->hovered;
 }
 
+static void write_post(struct writer *writer, const struct discussion *discussion)
+{
+    if (discussion->title == NULL) {
+        return;
+    }
+    if (writer->render) attron(A_BOLD);
+    write_text(writer, discussion->title, 0);
+    if (writer->render) attroff(A_BOLD);
+    write_text(writer, discussion->points, 0);
+    write_text(writer, "", 0);
+    write_text(writer, discussion->text[0] != '\0' ? discussion->text :
+               "This Hacker News post has no text. Press Enter to open its linked article.", 0);
+}
+
 size_t discussion_draw(const struct discussion *discussion, struct discussion_view *view,
-                       int loading, const char *error, const char *notice,
+                       int post_only, int loading, const char *error, const char *notice,
                        const struct mouse_event *pointer)
 {
     erase();
@@ -167,9 +186,17 @@ size_t discussion_draw(const struct discussion *discussion, struct discussion_vi
         return 0;
     }
     size_t previous_offset = view->offset;
-    discussion_hit(discussion, view, pointer);
+    if (post_only) {
+        view->hovered = SIZE_MAX;
+        struct writer layout = { .offset = view->offset, .pointer = pointer,
+                                 .view = view, .comment = SIZE_MAX };
+        write_post(&layout, discussion);
+        view->lines = layout.line;
+    } else {
+        discussion_hit(discussion, view, pointer);
+    }
     size_t height = (size_t)(LINES - 1);
-    if (view->follow && view->selected < discussion->count) {
+    if (!post_only && view->follow && view->selected < discussion->count) {
         if (view->start < view->offset || view->end - view->start > height) {
             view->offset = view->start;
         } else if (view->end > view->offset + height) {
@@ -179,22 +206,25 @@ size_t discussion_draw(const struct discussion *discussion, struct discussion_vi
     view->follow = 0;
     size_t maximum = view->lines > height ? view->lines - height : 0;
     if (view->offset > maximum) view->offset = maximum;
-    if (view->offset != previous_offset) {
+    if (!post_only && view->offset != previous_offset) {
         discussion_hit(discussion, view, pointer);
     }
     struct writer writer = { .offset = view->offset, .pointer = pointer,
                              .view = view, .comment = SIZE_MAX, .render = 1 };
     if (loading) {
-        write_text(&writer, "Loading discussion...", 0);
+        write_text(&writer, post_only ? "Loading post..." : "Loading discussion...", 0);
     } else if (*error != '\0') {
         write_text(&writer, error, 0);
+    } else if (post_only) {
+        write_post(&writer, discussion);
     } else {
         write_discussion(&writer, discussion);
     }
     int hovered = mouse_over(pointer, 0, LINES - 1, COLS);
     if (hovered) attron(A_UNDERLINE);
     mvaddnstr(LINES - 1, 0, notice[0] != '\0' ? notice :
-              "j/k select | PgUp/PgDn scroll | Enter comment | q home", COLS);
+              (post_only ? "j/k scroll | PgUp/PgDn | Enter browser | d comments | q home" :
+               "j/k select | PgUp/PgDn scroll | Enter comment | c post | q home"), COLS);
     if (hovered) attroff(A_UNDERLINE);
     refresh();
     return writer.line;

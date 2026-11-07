@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int collect_text(xmlNode *node, xmlBufferPtr buffer)
+static int collect_text(xmlNode *node, xmlBufferPtr buffer, int paragraphs)
 {
     for (; node != NULL; node = node->next) {
         if (node->type == XML_TEXT_NODE) {
@@ -17,9 +17,12 @@ static int collect_text(xmlNode *node, xmlBufferPtr buffer)
                         xmlStrEqual(node->name, BAD_CAST "div") ||
                         xmlStrEqual(node->name, BAD_CAST "br") ||
                         xmlStrEqual(node->name, BAD_CAST "pre");
-            if ((block && xmlBufferCat(buffer, BAD_CAST " ") != 0) ||
-                collect_text(node->children, buffer) != 0 ||
-                (block && xmlBufferCat(buffer, BAD_CAST " ") != 0)) {
+            const xmlChar *separator = BAD_CAST (paragraphs
+                ? (xmlStrEqual(node->name, BAD_CAST "br") ? "\n" : "\n\n") : " ");
+            if ((block && xmlBufferCat(buffer, separator) != 0) ||
+                collect_text(node->children, buffer, paragraphs) != 0 ||
+                (block && !xmlStrEqual(node->name, BAD_CAST "br") &&
+                 xmlBufferCat(buffer, separator) != 0)) {
                 return -1;
             }
         }
@@ -27,13 +30,13 @@ static int collect_text(xmlNode *node, xmlBufferPtr buffer)
     return 0;
 }
 
-char *html_text(xmlNode *node)
+static char *extract_text(xmlNode *node, int paragraphs)
 {
     xmlBufferPtr buffer = xmlBufferCreate();
     if (buffer == NULL) {
         return NULL;
     }
-    if (collect_text(node->children, buffer) != 0) {
+    if (collect_text(node->children, buffer, paragraphs) != 0) {
         xmlBufferFree(buffer);
         return NULL;
     }
@@ -42,10 +45,18 @@ char *html_text(xmlNode *node)
     if (text != NULL) {
         size_t length = 0;
         int space = 0;
+        int breaks = 0;
         for (const unsigned char *p = content; *p != '\0'; ++p) {
-            if (isspace(*p) || *p < 32 || *p == 127) {
-                space = length > 0;
+            if (paragraphs && *p == '\n') {
+                if (breaks < 2) ++breaks;
+                space = 0;
+            } else if (isspace(*p) || *p < 32 || *p == 127) {
+                space = length > 0 && breaks == 0;
             } else {
+                if (breaks > 0 && length > 0) {
+                    while (breaks-- > 0) text[length++] = '\n';
+                }
+                breaks = 0;
                 if (space) {
                     text[length++] = ' ';
                     space = 0;
@@ -57,6 +68,16 @@ char *html_text(xmlNode *node)
     }
     xmlBufferFree(buffer);
     return text;
+}
+
+char *html_text(xmlNode *node)
+{
+    return extract_text(node, 0);
+}
+
+char *html_post_text(xmlNode *node)
+{
+    return extract_text(node, 1);
 }
 
 char *html_item_path(xmlNode *node)

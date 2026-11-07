@@ -98,7 +98,7 @@ void list_draw(const struct feed *feed, size_t offset, size_t article, int comme
         }
     }
     char footer[128];
-    snprintf(footer, sizeof(footer), "%zu/%zu | j/k select | Enter open | Shift-Enter/c details | r reload | q quit",
+    snprintf(footer, sizeof(footer), "%zu/%zu | j/k select | Enter open | c post | d comments | r reload | q quit",
              feed->count == 0 ? 0 : article + 1, feed->count);
     int hovered = mouse_over(pointer, 0, LINES - 1, COLS);
     if (hovered) {

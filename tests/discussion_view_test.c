@@ -26,7 +26,7 @@ int main(void)
                                      .comments = comments, .count = 3 };
     struct discussion_view view = {0};
     struct mouse_event pointer = { .x = -1, .y = -1 };
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(view.end > view.start && view.start < 11);
     assert(mvwinch(stdscr, (int)view.start, 0) & A_REVERSE);
     pointer = (struct mouse_event){ .x = 2, .y = (int)view.start + 1 };
@@ -38,7 +38,7 @@ int main(void)
 
     view.selected = 1;
     view.follow = 1;
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(view.start >= view.offset && view.end <= view.offset + 11);
     int row = (int)(view.start - view.offset);
     assert(mvwinch(stdscr, row, 2) & A_REVERSE);
@@ -49,22 +49,43 @@ int main(void)
 
     view.selected = 2;
     view.follow = 1;
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(view.offset == view.start);
     view.offset += 11;
     size_t offset = view.offset;
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(view.offset == offset);
     pointer = (struct mouse_event){ .x = 5, .y = 2 };
     assert(discussion_hit(&discussion, &view, &pointer) == 2);
     assert(resizeterm(6, 20) == OK);
     view.follow = 1;
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(view.offset == view.start);
+
+    assert(resizeterm(12, 40) == OK);
+    discussion.text = "First paragraph.\n\nSecond paragraph.";
+    view = (struct discussion_view){0};
+    discussion_draw(&discussion, &view, 1, 0, "", "", &pointer);
+    char text[80];
+    mvwinnstr(stdscr, 3, 0, text, 39);
+    assert(strncmp(text, "First paragraph.", 16) == 0);
+    assert((mvwinch(stdscr, 4, 0) & A_CHARTEXT) == ' ');
+    mvwinnstr(stdscr, 5, 0, text, 39);
+    assert(strncmp(text, "Second paragraph.", 17) == 0);
+    assert(view.lines == 6);
+    discussion.text = "";
+    discussion_draw(&discussion, &view, 1, 0, "", "", &pointer);
+    mvwinnstr(stdscr, 3, 0, text, 39);
+    assert(strstr(text, "This Hacker News post has no text.") != NULL);
+    discussion.text = long_text;
+    view.offset = 10;
+    discussion_draw(&discussion, &view, 1, 0, "", "", &pointer);
+    assert(view.offset == 10 && view.lines > 11);
+    discussion.text = "";
 
     discussion.count = 0;
     view = (struct discussion_view){0};
-    discussion_draw(&discussion, &view, 0, "", "", &pointer);
+    discussion_draw(&discussion, &view, 0, 0, "", "", &pointer);
     assert(discussion_hit(&discussion, &view, &pointer) == SIZE_MAX);
     endwin();
     delscreen(screen);

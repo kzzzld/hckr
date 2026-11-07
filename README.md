@@ -18,7 +18,7 @@ make
 
 Switch tabs with Left/Right, `h`/`l`, or Tab/Shift-Tab. Navigation wraps around and the selected tab is highlighted. On narrow terminals the tab bar scrolls to keep the selected tab visible. Press `q`, Escape, or Ctrl-C to exit. Resizing redraws the UI; normal terminal settings are restored on exit.
 
-Use `j`/`k` or Up/Down to select an item and `r` to reload. The selection is highlighted and the list scrolls to keep it visible. Each article shows its title followed by an indented points-and-comments line, with one blank row between articles. Unavailable counts are labelled instead of guessed. The Comments feed keeps its compact text previews. Press Enter to open the selected article in your default browser. Ask HN posts open their HN page; comments open their permalink. Missing or unsupported links show an error without leaving the list. Each tab fetches its page when selected. Loading and request errors appear in the content area; keyboard navigation remains available while fetching. Requests use a 10-second connection timeout, a 20-second total timeout, and a 2 MiB response limit. TLS certificates are verified.
+Use `j`/`k` or Up/Down to select an item and `r` to reload. The selection is highlighted and the list scrolls to keep it visible. Each article shows its title followed by an indented points-and-comments line, with one blank row between articles. Unavailable counts are labelled instead of guessed. The Comments feed keeps its compact text previews. Press `c` to read text written directly in the Hacker News post, or Enter to open the selected article in your default browser. Ask HN posts open their HN page; comments open their permalink. Missing or unsupported links show an error without leaving the list. Each tab fetches its page when selected. Loading and request errors appear in the content area; keyboard navigation remains available while fetching. Requests use a 10-second connection timeout, a 20-second total timeout, and a 2 MiB response limit. TLS certificates are verified.
 
 Use `make run` to build and launch, `make test` to run checks (Python 3 required), or `make clean` to remove build output. The fetching tests use a temporary localhost HTTP server. Keyboard regression checks use temporary terminal pairs to cover standard and application-mode arrows, modified arrows, Shift-Enter, and Escape.
 
@@ -49,9 +49,15 @@ brew upgrade --fetch-HEAD kzzzld/tap/hckr
 
 The formula installs `hckr` and its INI themes. Your personal configuration is created on first launch. The formula test runs offline and verifies startup, configuration creation, and bundled theme loading. On Linux, opening articles also requires the desktop's `xdg-open` command. The formula source is also kept in `Formula/hckr.rb` in this repository.
 
+## Post text
+
+Press `c` on a selected post to read its Hacker News text in a focused view, with paragraphs preserved. This shows text from Ask HN, Show HN, and other self-posts; it does not fetch the linked external article. Link-only posts show a message when no HN text is available.
+
+Scroll with `j`/`k`, Up/Down, the wheel, or Page Up/Down. Enter opens the article in your browser, `d` switches to comments, and `q` or Escape returns to the list. Use `r` to reload the post. Within comments, `c` switches back to post text.
+
 ## Article details
 
-Press Shift-Enter on a selected item to read its Hacker News discussion inside the app. `c` opens the same view in any terminal. Shift-Enter supports Kitty's enhanced keyboard protocol and the xterm modified-key sequence; terminals that send the same bytes for Enter and Shift-Enter require the `c` fallback or a terminal key mapping.
+Press Shift-Enter on a selected item to read its Hacker News discussion inside the app. `d` opens the same view in any terminal. Shift-Enter supports Kitty's enhanced keyboard protocol and the xterm modified-key sequence; terminals that send the same bytes for Enter and Shift-Enter require the `d` fallback or a terminal key mapping.
 
 The detail view shows points, story text when available, and comments with author names and reply indentation. Separate upvote and downvote totals are not public; the UI labels them as unavailable. Comment totals describe the current page, and a notice identifies discussions with more pages available on Hacker News.
 

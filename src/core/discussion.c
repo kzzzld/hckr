@@ -14,12 +14,13 @@ static xmlXPathObjectPtr find(xmlXPathContextPtr context, const char *expression
 }
 
 static char *text_at(xmlXPathContextPtr context, const char *expression,
-                     const char *fallback)
+                     const char *fallback, int paragraphs)
 {
     xmlXPathObjectPtr nodes = find(context, expression);
     char *text = NULL;
     if (nodes != NULL && nodes->nodesetval != NULL && nodes->nodesetval->nodeNr > 0) {
-        text = html_text(nodes->nodesetval->nodeTab[0]);
+        text = paragraphs ? html_post_text(nodes->nodesetval->nodeTab[0])
+                          : html_text(nodes->nodesetval->nodeTab[0]);
     } else if (nodes != NULL) {
         text = strdup(fallback);
     }
@@ -65,11 +66,11 @@ int discussion_parse(const char *html, size_t length, struct discussion *discuss
     xmlXPathFreeObject(rows);
     rows = NULL;
     discussion->title = text_at(context,
-        "//*[contains(concat(' ',normalize-space(@class),' '),' titleline ')]/a[1]", "Discussion");
+        "//*[contains(concat(' ',normalize-space(@class),' '),' titleline ')]/a[1]", "Discussion", 0);
     discussion->points = text_at(context,
-        "//span[contains(concat(' ',normalize-space(@class),' '),' score ')]", "Points unavailable");
+        "//span[contains(concat(' ',normalize-space(@class),' '),' score ')]", "Points unavailable", 0);
     discussion->text = text_at(context,
-        "//*[contains(concat(' ',normalize-space(@class),' '),' toptext ')]", "");
+        "//*[contains(concat(' ',normalize-space(@class),' '),' toptext ')]", "", 1);
     if (discussion->title == NULL || discussion->points == NULL || discussion->text == NULL) {
         goto cleanup;
     }
@@ -88,9 +89,9 @@ int discussion_parse(const char *html, size_t length, struct discussion *discuss
         context->node = rows->nodesetval->nodeTab[i];
         struct comment *comment = &discussion->comments[discussion->count++];
         comment->path = html_item_path(context->node);
-        comment->author = text_at(context, ".//a[starts-with(@href,'user?id=') or contains(concat(' ',normalize-space(@class),' '),' hnuser ')]", "[deleted]");
+        comment->author = text_at(context, ".//a[starts-with(@href,'user?id=') or contains(concat(' ',normalize-space(@class),' '),' hnuser ')]", "[deleted]", 0);
         comment->text = text_at(context,
-            ".//*[contains(concat(' ',normalize-space(@class),' '),' commtext ')]", "[deleted]");
+            ".//*[contains(concat(' ',normalize-space(@class),' '),' commtext ')]", "[deleted]", 0);
         xmlXPathObjectPtr indent = find(context, ".//td[@class='ind']/@indent | .//td[@class='ind']/img/@width");
         if (indent != NULL && indent->nodesetval != NULL && indent->nodesetval->nodeNr > 0) {
             xmlNode *attribute = indent->nodesetval->nodeTab[0];

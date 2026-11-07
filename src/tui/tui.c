@@ -81,6 +81,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     int reload = 1;
     int input_active = 0;
     int details = 0;
+    int post_text = 0;
     int detail_reload = 0;
     struct discussion_view comment_view = {0};
     struct discussion discussion = {0};
@@ -194,7 +195,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             offset = article - visible + 1;
         }
         if (details) {
-            discussion_draw(&discussion, &comment_view, detail_request != NULL,
+            discussion_draw(&discussion, &comment_view, post_text, detail_request != NULL,
                             detail_error, notice, &pointer);
         } else {
             first_tab = draw_tabs(sections, count, selected, &pointer);
@@ -224,7 +225,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 notice[0] = '\0';
                 size_t clicked;
                 if (details) {
-                    if (detail_request != NULL || detail_error[0] != '\0') continue;
+                    if (post_text || detail_request != NULL || detail_error[0] != '\0') continue;
                     clicked = discussion_hit(&discussion, &comment_view, &mouse);
                     if (clicked == SIZE_MAX) {
                         click_pending = 0;
@@ -304,7 +305,11 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             size_t height = LINES > 1 ? (size_t)(LINES - 1) : 1;
             size_t maximum = comment_view.lines > height ? comment_view.lines - height : 0;
             if (key != ERR) notice[0] = '\0';
-            if (key == 'j' || key == KEY_DOWN) {
+            if (post_text && (key == 'j' || key == KEY_DOWN)) {
+                if (comment_view.offset < maximum) ++comment_view.offset;
+            } else if (post_text && (key == 'k' || key == KEY_UP)) {
+                if (comment_view.offset > 0) --comment_view.offset;
+            } else if (key == 'j' || key == KEY_DOWN) {
                 if (comment_view.selected + 1 < discussion.count) ++comment_view.selected;
                 comment_view.follow = 1;
             } else if (key == 'k' || key == KEY_UP) {
@@ -315,12 +320,18 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                     ? maximum : comment_view.offset + height;
             } else if (key == KEY_PPAGE) {
                 comment_view.offset = comment_view.offset < height ? 0 : comment_view.offset - height;
+            } else if (key == 'c' && !post_text) {
+                post_text = 1;
+                comment_view = (struct discussion_view){0};
+            } else if ((key == 'd' || key == KEY_DISCUSSION) && post_text) {
+                post_text = 0;
+                comment_view = (struct discussion_view){0};
             } else if (key == KEY_RESIZE) {
                 comment_view.follow = 1;
             } else if (key == 'r') {
                 detail_reload = 1;
             } else if (key == '\n' || key == '\r' || key == KEY_ENTER) {
-                if (comment_view.selected < discussion.count) {
+                if (!post_text && comment_view.selected < discussion.count) {
                     const char *path = discussion.comments[comment_view.selected].path;
                     if (path == NULL) {
                         snprintf(notice, sizeof(notice), "no permalink available for this comment");
@@ -357,9 +368,11 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             reload = 1;
             break;
         case KEY_DISCUSSION:
+        case 'd':
         case 'c':
             if (article < feed.count && feed.items[article].discussion_path != NULL) {
                 notice[0] = '\0';
+                post_text = key == 'c';
                 details = 1;
                 detail_reload = 1;
             } else if (article < feed.count) {

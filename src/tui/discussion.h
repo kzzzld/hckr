@@ -19,7 +19,7 @@ size_t discussion_hit(const struct discussion *discussion, struct discussion_vie
                       const struct mouse_event *pointer);
 
 size_t discussion_draw(const struct discussion *discussion, struct discussion_view *view,
-                       int loading, const char *error, const char *notice,
+                       int post_only, int loading, const char *error, const char *notice,
                        const struct mouse_event *pointer);
 
 #endif
