@@ -50,6 +50,14 @@ int main(void)
         { "\033[13;2u", KEY_DISCUSSION },
         { "\033[27;2;13~", KEY_DISCUSSION },
         { "\033[27u", KEY_EXIT }, { "\033[99;5u", KEY_CANCEL },
+        { "\033[M ,#", KEY_MOUSE },
+        { "\033[<0;12;3m", KEY_MOUSE },
+        { "\033[<64;12;3M", KEY_MOUSE },
+        { "\033[<65;12;3M", KEY_MOUSE },
+        { "\033[<4;12;3m", KEY_MOUSE },
+        { "\033[<2;12;3m", KEY_MOUSE },
+        { "\033[<0;0;3m", ERR },
+        { "\033[<0;99999999999999;3m", ERR },
         { "\033[999~", ERR }, { "\033q", ERR },
         { "\033", 27 }, { "q", 'q' },
     };
@@ -71,10 +79,15 @@ int main(void)
         timeout(100);
         input_start();
         assert(write(master, cases[i].bytes, strlen(cases[i].bytes)) == (ssize_t)strlen(cases[i].bytes));
-        int key = input_read();
+        struct mouse_event mouse = {0};
+        int key = input_read(&mouse);
         if (key != cases[i].expected) {
             fprintf(stderr, "case %zu: got %d, expected %d\n", i, key, cases[i].expected);
             return 1;
+        }
+        if (key == KEY_MOUSE) {
+            assert(mouse.x == 11 && mouse.y == 2);
+            assert(mouse.button != MOUSE_NONE);
         }
         input_stop();
         endwin();
@@ -90,6 +103,6 @@ int main(void)
     assert(dup2(saved_stdout, STDOUT_FILENO) >= 0);
     close(saved_stdout);
     fclose(protocol);
-    puts("Arrow keys, Shift-Enter, unknown sequences, and Escape passed");
+    puts("Keyboard and mouse input regression checks passed");
     return 0;
 }

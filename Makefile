@@ -18,7 +18,7 @@ ifeq ($(OS),Windows_NT)
 LDLIBS += -lshell32 -lole32
 endif
 
-SOURCES := src/main.c src/core/config.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/input.c src/tui/discussion.c
+SOURCES := src/main.c src/core/config.c src/core/sections.c src/core/http.c src/core/feed.c src/core/html.c src/core/discussion.c src/platform/browser.c src/tui/tui.c src/tui/input.c src/tui/mouse.c src/tui/discussion.c
 OBJECTS := $(SOURCES:src/%.c=build/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
@@ -49,10 +49,14 @@ ifeq ($(shell uname -s),Linux)
 INPUT_TEST_LIBS += -lutil
 endif
 
-build/input_test: tests/input_test.c build/tui/input.o
+build/input_test: tests/input_test.c build/tui/input.o build/tui/mouse.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) $(INPUT_TEST_LIBS) -o $@
 
-test: build/hckr build/feed_test build/browser_test build/discussion_test build/input_test
+build/mouse_test: tests/mouse_test.c build/tui/mouse.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+test: build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+	./build/mouse_test
 	./build/input_test
 	./build/discussion_test
 	python3 tests/config_test.py

@@ -9,10 +9,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <signal.h>
 
-enum { TITLES_PER_GROUP = 3 };
+static volatile sig_atomic_t interrupted;
 
-static void draw_tabs(const struct hn_section *sections, size_t count,
+static void handle_signal(int signal_number)
+{
+    interrupted = signal_number;
+}
+
+static size_t draw_tabs(const struct hn_section *sections, size_t count,
                       size_t selected)
 {
     size_t first = selected;
@@ -46,6 +53,7 @@ static void draw_tabs(const struct hn_section *sections, size_t count,
         }
         column += (int)strlen(sections[i].label);
     }
+    return first;
 }
 
 
@@ -61,8 +69,7 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
     } else if (error[0] != '\0') {
         mvaddnstr(2, 0, error, COLS);
     } else {
-        size_t displayed = 0;
-        for (int row = 2; row < LINES - 1 && offset < feed->count; ++offset) {
+        for (int row = 2; row < LINES - 1 && offset < feed->count; ++row, ++offset) {
             if (offset == article) {
                 attron(A_REVERSE);
             }
@@ -70,8 +77,6 @@ static void draw_content(const struct feed *feed, size_t offset, size_t article,
             if (offset == article) {
                 attroff(A_REVERSE);
             }
-            ++displayed;
-            row += displayed % TITLES_PER_GROUP == 0 ? 2 : 1;
         }
     }
     char footer[128];
@@ -101,6 +106,13 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     struct discussion discussion = {0};
     struct http_request *detail_request = NULL;
     char detail_error[256] = "";
+    size_t first_tab = 0;
+    size_t last_clicked = 0;
+    int click_pending = 0;
+    struct timespec last_click = {0};
+    struct sigaction previous_int;
+    struct sigaction previous_term;
+    int signals_active = 0;
 
     if (sections == NULL || count == 0 || selected >= count) {
         fputs("hckr: no sections configured\n", stderr);
@@ -122,12 +134,25 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
         goto cleanup;
     }
 
+    struct sigaction action = { .sa_handler = handle_signal };
+    sigemptyset(&action.sa_mask);
+    interrupted = 0;
+    if (sigaction(SIGINT, &action, &previous_int) != 0) {
+        result = 1;
+        goto cleanup;
+    }
+    if (sigaction(SIGTERM, &action, &previous_term) != 0) {
+        sigaction(SIGINT, &previous_int, NULL);
+        result = 1;
+        goto cleanup;
+    }
+    signals_active = 1;
     curs_set(0);
     timeout(100);
     input_start();
     input_active = 1;
 
-    for (;;) {
+    while (!interrupted) {
         if (reload) {
             http_free(request);
             feed_free(&feed);
@@ -175,8 +200,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             }
         }
         browser_poll(&browser, notice, sizeof(notice));
-        size_t rows = LINES > 3 ? (size_t)(LINES - 3) : 1;
-        size_t visible = rows - rows / (TITLES_PER_GROUP + 1);
+        size_t visible = LINES > 3 ? (size_t)(LINES - 3) : 1;
         if (article < offset) {
             offset = article;
         } else if (article - offset >= visible) {
@@ -192,10 +216,76 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 discussion_draw(&discussion, detail_offset, detail_request != NULL, detail_error, notice);
             }
         } else {
-            draw_tabs(sections, count, selected);
+            first_tab = draw_tabs(sections, count, selected);
             draw_content(&feed, offset, article, request != NULL, error, notice);
         }
-        int key = input_read();
+        struct mouse_event mouse = {0};
+        int key = input_read(&mouse);
+        if (key == KEY_MOUSE) {
+            if (mouse.x < 0 || mouse.x >= COLS || mouse.y < 0 || mouse.y >= LINES) {
+                continue;
+            }
+            if (!mouse.released && mouse.button == MOUSE_UP) {
+                key = KEY_UP;
+                click_pending = 0;
+            } else if (!mouse.released && mouse.button == MOUSE_DOWN) {
+                key = KEY_DOWN;
+                click_pending = 0;
+            } else if (mouse.released && mouse.button == MOUSE_RIGHT && details) {
+                key = 'q';
+            } else if (mouse.released && mouse.button == MOUSE_LEFT && !details) {
+                notice[0] = '\0';
+                if (mouse.y == 0) {
+                    int column = 0;
+                    for (size_t i = first_tab; i < count && column < COLS; ++i) {
+                        int width = (int)strlen(sections[i].label);
+                        if (mouse.x >= column && mouse.x < column + width) {
+                            if (selected != i) {
+                                selected = i;
+                                reload = 1;
+                            }
+                            break;
+                        }
+                        column += width + 3;
+                    }
+                    click_pending = 0;
+                    continue;
+                }
+                if (mouse.y < 2 || mouse.y >= LINES - 1 || request != NULL || error[0] != '\0') {
+                    click_pending = 0;
+                    continue;
+                }
+                size_t clicked = offset + (size_t)(mouse.y - 2);
+                if (clicked >= feed.count) {
+                    click_pending = 0;
+                    continue;
+                }
+                article = clicked;
+                struct timespec now;
+                if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+                    click_pending = 0;
+                    continue;
+                }
+                double elapsed = (double)(now.tv_sec - last_click.tv_sec) +
+                    (double)(now.tv_nsec - last_click.tv_nsec) / 1000000000.0;
+                if (mouse.shift) {
+                    key = KEY_DISCUSSION;
+                    click_pending = 0;
+                } else if (click_pending && last_clicked == clicked && elapsed <= 0.35) {
+                    key = KEY_ENTER;
+                    click_pending = 0;
+                } else {
+                    last_clicked = clicked;
+                    last_click = now;
+                    click_pending = 1;
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        } else if (key != ERR) {
+            click_pending = 0;
+        }
         if (key == KEY_CANCEL) {
             break;
         }
@@ -294,5 +384,9 @@ cleanup:
     if (result != 0) {
         fputs("hckr: terminal operation failed\n", stderr);
     }
-    return result;
+    if (signals_active) {
+        sigaction(SIGINT, &previous_int, NULL);
+        sigaction(SIGTERM, &previous_term, NULL);
+    }
+    return interrupted ? 128 + interrupted : result;
 }
