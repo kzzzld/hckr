@@ -31,6 +31,8 @@ int main(void)
     assert(strcmp(discussion.comments[0].author, "alice") == 0);
     assert(strcmp(discussion.comments[0].text, "Hello & hi. Next paragraph.") == 0);
     assert(discussion.comments[1].depth == 2);
+    assert(strcmp(discussion.comments[0].path, "/item?id=101") == 0);
+    assert(strcmp(discussion.comments[1].path, "/item?id=102") == 0);
     assert(strcmp(discussion.comments[2].text, "[deleted]") == 0);
     discussion_free(&discussion);
 

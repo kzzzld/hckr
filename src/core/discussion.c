@@ -35,6 +35,7 @@ void discussion_free(struct discussion *discussion)
     for (size_t i = 0; i < discussion->count; ++i) {
         free(discussion->comments[i].author);
         free(discussion->comments[i].text);
+        free(discussion->comments[i].path);
     }
     free(discussion->comments);
     *discussion = (struct discussion){0};
@@ -86,6 +87,7 @@ int discussion_parse(const char *html, size_t length, struct discussion *discuss
     for (size_t i = 0; i < count; ++i) {
         context->node = rows->nodesetval->nodeTab[i];
         struct comment *comment = &discussion->comments[discussion->count++];
+        comment->path = html_item_path(context->node);
         comment->author = text_at(context, ".//a[starts-with(@href,'user?id=') or contains(concat(' ',normalize-space(@class),' '),' hnuser ')]", "[deleted]");
         comment->text = text_at(context,
             ".//*[contains(concat(' ',normalize-space(@class),' '),' commtext ')]", "[deleted]");

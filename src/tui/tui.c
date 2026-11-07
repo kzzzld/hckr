@@ -9,6 +9,7 @@
 
 #include <curses.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -81,8 +82,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
     int input_active = 0;
     int details = 0;
     int detail_reload = 0;
-    size_t detail_offset = 0;
-    size_t detail_lines = 0;
+    struct discussion_view comment_view = {0};
     struct discussion discussion = {0};
     struct http_request *detail_request = NULL;
     char detail_error[256] = "";
@@ -169,8 +169,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             http_free(detail_request);
             discussion_free(&discussion);
             detail_error[0] = '\0';
-            detail_offset = 0;
-            detail_lines = 0;
+            comment_view = (struct discussion_view){0};
             detail_request = http_start(config->hn_base_url, feed.items[article].discussion_path,
                                         detail_error, sizeof(detail_error));
             detail_reload = 0;
@@ -195,14 +194,8 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
             offset = article - visible + 1;
         }
         if (details) {
-            detail_lines = discussion_draw(&discussion, detail_offset,
-                                           detail_request != NULL, detail_error, notice, &pointer);
-            size_t height = LINES > 1 ? (size_t)(LINES - 1) : 1;
-            size_t maximum = detail_lines > height ? detail_lines - height : 0;
-            if (detail_offset > maximum) {
-                detail_offset = maximum;
-                discussion_draw(&discussion, detail_offset, detail_request != NULL, detail_error, notice, &pointer);
-            }
+            discussion_draw(&discussion, &comment_view, detail_request != NULL,
+                            detail_error, notice, &pointer);
         } else {
             first_tab = draw_tabs(sections, count, selected, &pointer);
             list_draw(&feed, offset, article, sections[selected].comments,
@@ -227,35 +220,45 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 click_pending = 0;
             } else if (mouse.released && mouse.button == MOUSE_RIGHT && details) {
                 key = 'q';
-            } else if (mouse.released && mouse.button == MOUSE_LEFT && !details) {
+            } else if (mouse.released && mouse.button == MOUSE_LEFT) {
                 notice[0] = '\0';
-                if (mouse.y == 0) {
-                    int column = 0;
-                    for (size_t i = first_tab; i < count && column < COLS; ++i) {
-                        int width = (int)strlen(sections[i].label);
-                        if (mouse.x >= column && mouse.x < column + width) {
-                            if (selected != i) {
-                                selected = i;
-                                reload = 1;
-                            }
-                            break;
-                        }
-                        column += width + 3;
-                    }
-                    click_pending = 0;
-                    continue;
-                }
-                if (mouse.y < 2 || mouse.y >= LINES - 1 || request != NULL || error[0] != '\0') {
-                    click_pending = 0;
-                    continue;
-                }
                 size_t clicked;
-                if (!list_item_at(mouse.y, LINES, sections[selected].comments,
-                                  offset, feed.count, &clicked)) {
-                    click_pending = 0;
-                    continue;
+                if (details) {
+                    if (detail_request != NULL || detail_error[0] != '\0') continue;
+                    clicked = discussion_hit(&discussion, &comment_view, &mouse);
+                    if (clicked == SIZE_MAX) {
+                        click_pending = 0;
+                        continue;
+                    }
+                    comment_view.selected = clicked;
+                } else {
+                    if (mouse.y == 0) {
+                        int column = 0;
+                        for (size_t i = first_tab; i < count && column < COLS; ++i) {
+                            int width = (int)strlen(sections[i].label);
+                            if (mouse.x >= column && mouse.x < column + width) {
+                                if (selected != i) {
+                                    selected = i;
+                                    reload = 1;
+                                }
+                                break;
+                            }
+                            column += width + 3;
+                        }
+                        click_pending = 0;
+                        continue;
+                    }
+                    if (mouse.y < 2 || mouse.y >= LINES - 1 || request != NULL || error[0] != '\0') {
+                        click_pending = 0;
+                        continue;
+                    }
+                    if (!list_item_at(mouse.y, LINES, sections[selected].comments,
+                                      offset, feed.count, &clicked)) {
+                        click_pending = 0;
+                        continue;
+                    }
+                    article = clicked;
                 }
-                article = clicked;
                 struct timespec now;
                 if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
                     click_pending = 0;
@@ -263,7 +266,7 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 }
                 double elapsed = (double)(now.tv_sec - last_click.tv_sec) +
                     (double)(now.tv_nsec - last_click.tv_nsec) / 1000000000.0;
-                if (mouse.shift) {
+                if (mouse.shift && !details) {
                     key = KEY_DISCUSSION;
                     click_pending = 0;
                 } else if (click_pending && last_clicked == clicked && elapsed <= 0.35) {
@@ -292,24 +295,51 @@ int tui_run(const struct hn_section *sections, size_t count, size_t selected,
                 discussion_free(&discussion);
                 details = 0;
                 detail_reload = 0;
+                click_pending = 0;
                 continue;
             }
             break;
         }
         if (details) {
             size_t height = LINES > 1 ? (size_t)(LINES - 1) : 1;
-            size_t maximum = detail_lines > height ? detail_lines - height : 0;
-            if (key != ERR) {
-                notice[0] = '\0';
-            }
-            if ((key == 'j' || key == KEY_DOWN) && detail_offset < maximum) {
-                ++detail_offset;
-            } else if ((key == 'k' || key == KEY_UP) && detail_offset > 0) {
-                --detail_offset;
+            size_t maximum = comment_view.lines > height ? comment_view.lines - height : 0;
+            if (key != ERR) notice[0] = '\0';
+            if (key == 'j' || key == KEY_DOWN) {
+                if (comment_view.selected + 1 < discussion.count) ++comment_view.selected;
+                comment_view.follow = 1;
+            } else if (key == 'k' || key == KEY_UP) {
+                if (comment_view.selected > 0) --comment_view.selected;
+                comment_view.follow = 1;
+            } else if (key == KEY_NPAGE) {
+                comment_view.offset = maximum - comment_view.offset < height
+                    ? maximum : comment_view.offset + height;
+            } else if (key == KEY_PPAGE) {
+                comment_view.offset = comment_view.offset < height ? 0 : comment_view.offset - height;
+            } else if (key == KEY_RESIZE) {
+                comment_view.follow = 1;
             } else if (key == 'r') {
                 detail_reload = 1;
             } else if (key == '\n' || key == '\r' || key == KEY_ENTER) {
-                browser_open(&browser, feed.items[article].url, notice, sizeof(notice));
+                if (comment_view.selected < discussion.count) {
+                    const char *path = discussion.comments[comment_view.selected].path;
+                    if (path == NULL) {
+                        snprintf(notice, sizeof(notice), "no permalink available for this comment");
+                    } else {
+                        size_t size = strlen(config->hn_base_url) + strlen(path) + 1;
+                        char *url = malloc(size);
+                        if (url == NULL) {
+                            snprintf(notice, sizeof(notice), "could not allocate comment URL");
+                            continue;
+                        }
+                        size_t length = strlen(config->hn_base_url);
+                        while (length > 0 && config->hn_base_url[length - 1] == '/') --length;
+                        snprintf(url, size, "%.*s%s", (int)length, config->hn_base_url, path);
+                        browser_open(&browser, url, notice, sizeof(notice));
+                        free(url);
+                    }
+                } else {
+                    browser_open(&browser, feed.items[article].url, notice, sizeof(notice));
+                }
             }
             continue;
         }

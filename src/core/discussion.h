@@ -6,6 +6,7 @@
 struct comment {
     char *author;
     char *text;
+    char *path;
     unsigned depth;
 };
 

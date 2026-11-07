@@ -66,7 +66,11 @@ build/theme_test: tests/theme_test.c build/tui/theme.o
 build/list_test: tests/list_test.c build/tui/list.o build/tui/mouse.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-test: build/list_test build/theme_test build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+build/discussion_view_test: tests/discussion_view_test.c build/tui/discussion.o build/tui/mouse.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+test: build/discussion_view_test build/list_test build/theme_test build/config_test build/hckr build/feed_test build/browser_test build/discussion_test build/input_test build/mouse_test
+	./build/discussion_view_test
 	./build/list_test
 	./build/theme_test
 	./build/mouse_test

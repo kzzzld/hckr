@@ -24,7 +24,7 @@ Use `make run` to build and launch, `make test` to run checks (Python 3 required
 
 ## Mouse
 
-In terminals that support SGR or legacy xterm mouse reporting, hover over tabs, titles, discussion text, or footer hints to underline them. Hover does not change your selected article. Click a tab to switch feeds and click a title or its statistics line to select it. Double-click a title to open it in your default browser. Shift-click opens its discussion. The wheel moves the selection in the list and scrolls comment text in the detail view. Right-click inside a discussion returns to the list.
+In terminals that support SGR or legacy xterm mouse reporting, hover over tabs, titles, discussion text, or footer hints to underline them. Hover does not change your selected article. Click a tab to switch feeds and click a title or its statistics line to select it. Double-click a title to open it in your default browser. Shift-click opens its discussion. The wheel moves the selection in article and comment lists. Click a comment to select it, or double-click to open its permalink. Right-click inside a discussion returns to the list.
 
 Mouse reporting is disabled when the app exits. Hold your terminal's mouse-selection modifier (often Shift) when you want to select and copy text instead of sending clicks to the app.
 
@@ -55,7 +55,7 @@ Press Shift-Enter on a selected item to read its Hacker News discussion inside t
 
 The detail view shows points, story text when available, and comments with author names and reply indentation. Separate upvote and downvote totals are not public; the UI labels them as unavailable. Comment totals describe the current page, and a notice identifies discussions with more pages available on Hacker News.
 
-Scroll with `j`/`k` or Up/Down, reload with `r`, and press `q` or Escape to return to the original tab and selection. Returning during loading cancels the detail request. Enter still opens the selected article in your default browser. At the home list, `q` exits the app.
+Select comments with `j`/`k`, Up/Down, the mouse wheel, or a click. The selected comment is highlighted and kept visible. Page Up/Down scroll through long comments without changing selection. Reload with `r`, and press `q` or Escape to return to the original tab and article selection. Returning during loading cancels the detail request. Enter or a double-click opens the selected comment’s permalink in your default browser; if there are no comments, Enter opens the article. At the home list, `q` exits the app.
 
 ## Opening articles
 

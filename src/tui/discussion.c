@@ -10,20 +10,32 @@ struct writer {
     size_t line;
     size_t offset;
     const struct mouse_event *pointer;
+    struct discussion_view *view;
+    size_t comment;
+    int render;
 };
 
 static void write_line(struct writer *writer, const char *text, size_t length, int indent)
 {
-    if (writer->line >= writer->offset &&
+    if (writer->render && writer->line >= writer->offset &&
         writer->line - writer->offset < (size_t)(LINES > 1 ? LINES - 1 : 0)) {
         int row = (int)(writer->line - writer->offset);
-        int hovered = mouse_over(writer->pointer, indent, row, COLS - indent);
+        int hovered = writer->comment != SIZE_MAX
+            ? writer->comment == writer->view->hovered
+            : mouse_over(writer->pointer, indent, row, COLS - indent);
+        int selected = writer->comment != SIZE_MAX && writer->comment == writer->view->selected;
+        if (selected) {
+            attron(A_REVERSE);
+        }
         if (hovered) {
             attron(A_UNDERLINE);
         }
         mvaddnstr(row, indent, text, (int)length);
         if (hovered) {
             attroff(A_UNDERLINE);
+        }
+        if (selected) {
+            attroff(A_REVERSE);
         }
     }
     ++writer->line;
@@ -87,7 +99,65 @@ static void write_text(struct writer *writer, const char *text, unsigned depth)
     }
 }
 
-size_t discussion_draw(const struct discussion *discussion, size_t offset,
+static void write_discussion(struct writer *writer, const struct discussion *discussion)
+{
+    if (discussion->title == NULL) {
+        return;
+    }
+    if (writer->render) attron(A_BOLD);
+    write_text(writer, discussion->title, 0);
+    if (writer->render) attroff(A_BOLD);
+    write_text(writer, discussion->points, 0);
+    write_text(writer, "Upvotes: not public | Downvotes: not public", 0);
+    write_text(writer, "", 0);
+    if (discussion->text[0] != '\0') {
+        write_text(writer, discussion->text, 0);
+        write_text(writer, "", 0);
+    }
+    char summary[100];
+    snprintf(summary, sizeof(summary), "%zu comments on this page%s", discussion->count,
+             discussion->more ? " (more available on Hacker News)" : "");
+    write_text(writer, summary, 0);
+    write_text(writer, "", 0);
+    for (size_t i = 0; i < discussion->count; ++i) {
+        const struct comment *comment = &discussion->comments[i];
+        size_t start = writer->line;
+        writer->comment = i;
+        if (writer->render) attron(A_BOLD);
+        write_text(writer, comment->author, comment->depth);
+        if (writer->render) attroff(A_BOLD);
+        write_text(writer, comment->text, comment->depth);
+        if (i == writer->view->selected) {
+            writer->view->start = start;
+            writer->view->end = writer->line;
+        }
+        if (!writer->render && writer->pointer->y >= 0 &&
+            writer->pointer->y < LINES - 1 && writer->pointer->x >= 0 &&
+            writer->pointer->x < COLS) {
+            size_t line = writer->offset + (size_t)writer->pointer->y;
+            int indent = (int)comment->depth * 2;
+            if (indent > COLS / 3) indent = COLS / 3;
+            if (line >= start && line < writer->line && writer->pointer->x >= indent) {
+                writer->view->hovered = i;
+            }
+        }
+        writer->comment = SIZE_MAX;
+        write_text(writer, "", 0);
+    }
+}
+
+size_t discussion_hit(const struct discussion *discussion, struct discussion_view *view,
+                      const struct mouse_event *pointer)
+{
+    view->hovered = SIZE_MAX;
+    struct writer writer = { .offset = view->offset, .pointer = pointer,
+                             .view = view, .comment = SIZE_MAX };
+    write_discussion(&writer, discussion);
+    view->lines = writer.line;
+    return view->hovered;
+}
+
+size_t discussion_draw(const struct discussion *discussion, struct discussion_view *view,
                        int loading, const char *error, const char *notice,
                        const struct mouse_event *pointer)
 {
@@ -96,45 +166,36 @@ size_t discussion_draw(const struct discussion *discussion, size_t offset,
         refresh();
         return 0;
     }
-    struct writer writer = { .offset = offset, .pointer = pointer };
+    size_t previous_offset = view->offset;
+    discussion_hit(discussion, view, pointer);
+    size_t height = (size_t)(LINES - 1);
+    if (view->follow && view->selected < discussion->count) {
+        if (view->start < view->offset || view->end - view->start > height) {
+            view->offset = view->start;
+        } else if (view->end > view->offset + height) {
+            view->offset = view->end - height;
+        }
+    }
+    view->follow = 0;
+    size_t maximum = view->lines > height ? view->lines - height : 0;
+    if (view->offset > maximum) view->offset = maximum;
+    if (view->offset != previous_offset) {
+        discussion_hit(discussion, view, pointer);
+    }
+    struct writer writer = { .offset = view->offset, .pointer = pointer,
+                             .view = view, .comment = SIZE_MAX, .render = 1 };
     if (loading) {
         write_text(&writer, "Loading discussion...", 0);
     } else if (*error != '\0') {
         write_text(&writer, error, 0);
-    } else if (discussion->title != NULL) {
-        attron(A_BOLD);
-        write_text(&writer, discussion->title, 0);
-        attroff(A_BOLD);
-        write_text(&writer, discussion->points, 0);
-        write_text(&writer, "Upvotes: not public | Downvotes: not public", 0);
-        write_text(&writer, "", 0);
-        if (discussion->text[0] != '\0') {
-            write_text(&writer, discussion->text, 0);
-            write_text(&writer, "", 0);
-        }
-        char summary[100];
-        snprintf(summary, sizeof(summary), "%zu comments on this page%s", discussion->count,
-                 discussion->more ? " (more available on Hacker News)" : "");
-        write_text(&writer, summary, 0);
-        write_text(&writer, "", 0);
-        for (size_t i = 0; i < discussion->count; ++i) {
-            const struct comment *comment = &discussion->comments[i];
-            attron(A_BOLD);
-            write_text(&writer, comment->author, comment->depth);
-            attroff(A_BOLD);
-            write_text(&writer, comment->text, comment->depth);
-            write_text(&writer, "", 0);
-        }
+    } else {
+        write_discussion(&writer, discussion);
     }
     int hovered = mouse_over(pointer, 0, LINES - 1, COLS);
-    if (hovered) {
-        attron(A_UNDERLINE);
-    }
+    if (hovered) attron(A_UNDERLINE);
     mvaddnstr(LINES - 1, 0, notice[0] != '\0' ? notice :
-              "j/k scroll | Enter browser | r reload | q home", COLS);
-    if (hovered) {
-        attroff(A_UNDERLINE);
-    }
+              "j/k select | PgUp/PgDn scroll | Enter comment | q home", COLS);
+    if (hovered) attroff(A_UNDERLINE);
     refresh();
     return writer.line;
 }
