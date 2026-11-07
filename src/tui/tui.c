@@ -10,7 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
-enum { TITLE_ROW_STEP = 2 };
+enum { TITLE_ROW_STEP = 1 };
 
 static void draw_tabs(const struct hn_section *sections, size_t count,
                       size_t selected)
